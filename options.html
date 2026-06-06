@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Solv — Settings</title>
+<style>
+  :root{
+    --bg:#0b0c12;--panel:#14161f;--line:#262b3a;--ink:#eef1f8;--mut:#9aa3b6;
+    --accent:#6c8cff;--g1:#6c8cff;--g2:#9b6cff;--g3:#ff7eb6;--good:#3ad29f;
+    --grad:linear-gradient(120deg,var(--g1),var(--g2) 55%,var(--g3));
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);font-family:var(--sans);padding:48px 20px 80px;
+    background:
+      radial-gradient(800px 420px at 110% -10%,rgba(155,108,255,.16),transparent),
+      radial-gradient(700px 360px at -10% 0%,rgba(108,140,255,.14),transparent),
+      var(--bg)}
+  textarea{width:100%;background:#0f1117;border:1px solid var(--line);color:var(--ink);border-radius:9px;
+    padding:9px 11px;font-size:12.5px;font-family:var(--sans);outline:none;resize:vertical;min-height:54px;line-height:1.45}
+  textarea:focus{border-color:var(--g1)}
+  .help-prov{margin:0 0 14px}
+  .help-prov h3{margin:0 0 4px;font-size:14px}
+  .help-prov ol{margin:0;padding-left:18px;color:var(--mut);font-size:13px;line-height:1.55}
+  .pill-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--grad);color:#fff;font-weight:600;margin-left:6px}
+  .checks{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-bottom:6px}
+  .checks label{display:flex;align-items:center;gap:8px;margin:0;color:var(--ink);font-size:13px;text-transform:none;letter-spacing:0}
+  .checks input{width:auto}
+  .wrap{max-width:640px;margin:0 auto}
+  h1{font-size:28px;margin:0 0 4px;letter-spacing:-.01em}
+  h1 .d{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--mut);margin:0 0 28px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:16px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin:0 0 14px}
+  label{display:block;font-size:13px;color:var(--mut);margin:14px 0 6px}
+  label:first-of-type{margin-top:0}
+  input,select{width:100%;background:#0f1117;border:1px solid var(--line);color:var(--ink);
+    border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none}
+  input:focus,select:focus{border-color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .switch{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+  .switch span{font-size:14px}
+  input[type=checkbox]{width:auto}
+  .range-val{color:var(--accent);font-weight:600}
+  .save-bar{position:sticky;bottom:16px;display:flex;gap:12px;align-items:center;margin-top:8px}
+  button{background:var(--grad);border:none;color:#fff;font-weight:700;font-size:14px;
+    padding:11px 24px;border-radius:10px;cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(124,108,255,.4)}
+  .saved{color:var(--good);font-size:13px;opacity:0;transition:.2s}
+  .saved.show{opacity:1}
+  .note{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.5}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Solv<span class="d">.</span> Settings</h1>
+  <p class="sub">Keys are stored only in this browser (chrome.storage.local) and sent directly to the provider you choose.</p>
+
+  <div class="card">
+    <h2>Default provider</h2>
+    <label>Provider</label>
+    <select id="provider">
+      <optgroup label="Your subscription (logged-in tab — no key)">
+        <option value="web_chatgpt">ChatGPT (your login)</option>
+        <option value="web_claude">Claude (your login)</option>
+        <option value="web_gemini">Gemini (your login)</option>
+      </optgroup>
+      <optgroup label="API key">
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic · Claude</option>
+        <option value="gemini">Google Gemini</option>
+      </optgroup>
+      <optgroup label="Local / on-device (no key)">
+        <option value="ollama">Ollama (local)</option>
+        <option value="builtin">Chrome built-in AI</option>
+      </optgroup>
+    </select>
+    <p class="note">The <b>“your login”</b> options drive your already-signed-in ChatGPT / Claude / Gemini
+      tab — uses the subscription you already pay for, no API key. Keep that site open and logged in.
+      Solv opens the tab automatically the first time. (Login providers are text-only for now.)</p>
+  </div>
+
+  <div class="card">
+    <h2>API keys &amp; models</h2>
+    <div class="grid2">
+      <div><label>OpenAI key</label><input id="key_openai" type="password" placeholder="sk-…" /></div>
+      <div><label>OpenAI model</label><input id="model_openai" placeholder="gpt-4o" /></div>
+    </div>
+    <div class="grid2">
+      <div><label>Anthropic key</label><input id="key_anthropic" type="password" placeholder="sk-ant-…" /></div>
+      <div><label>Anthropic model</label><input id="model_anthropic" placeholder="claude-sonnet-4-6" /></div>
+    </div>
+    <div class="grid2">
+      <div><label>Gemini key</label><input id="key_gemini" type="password" placeholder="AIza…" /></div>
+      <div><label>Gemini model</label><input id="model_gemini" placeholder="gemini-2.0-flash" /></div>
+    </div>
+    <p class="note">Get keys: <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI</a> ·
+      <a href="https://console.anthropic.com/settings/keys" target="_blank">Anthropic</a> ·
+      <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></p>
+  </div>
+
+  <div class="card">
+    <h2>Local &amp; on-device</h2>
+    <div class="grid2">
+      <div><label>Ollama URL</label><input id="ollamaUrl" placeholder="http://localhost:11434" /></div>
+      <div><label>Ollama model</label><input id="model_ollama" placeholder="llama3.2" /></div>
+    </div>
+    <p class="note">For images with Ollama use a vision model (e.g. <code>llava</code>, <code>llama3.2-vision</code>).
+      Chrome built-in AI needs no setup beyond enabling the Prompt API in a recent Chrome.</p>
+  </div>
+
+  <div class="card">
+    <h2>Behavior</h2>
+    <label>Auto-verify threshold — re-solve when confidence is below <span class="range-val" id="thVal">70</span>%</label>
+    <input id="confidenceThreshold" type="range" min="0" max="100" step="5" />
+    <div class="switch"><span>Automatically run an independent verification pass when confidence is low</span>
+      <input id="autoVerify" type="checkbox" /></div>
+    <div class="switch"><span>Login providers: briefly focus the AI tab while solving<br><span style="color:var(--mut);font-size:12px">Guarantees the answer is captured even if the tab is in the background. Leave off to keep your current tab focused — Solv reads the response live either way.</span></span>
+      <input id="webFocusTab" type="checkbox" /></div>
+    <label>Default mode</label>
+    <select id="defaultMode"></select>
+  </div>
+
+  <div class="card">
+    <h2>Mode prompts <span class="pill-tag">customize</span></h2>
+    <p class="note" style="margin-top:0">These instructions are sent to the AI with every question so answers come out the way you want. Edit to taste; leave blank to use the default.</p>
+    <div id="modePrompts"></div>
+    <button id="resetPrompts" style="background:#1b1f2b;box-shadow:none;font-weight:600;margin-top:12px;padding:8px 16px;font-size:13px">Reset prompts to default</button>
+  </div>
+
+  <div class="card">
+    <h2>Overlay &amp; menus <span class="pill-tag">declutter</span></h2>
+    <p class="note" style="margin-top:0">Hide anything you don’t use to keep the floating overlay minimal. The controls (provider/model/mode) live behind the ⚙ button when compact is on.</p>
+    <div class="switch"><span>Compact — keep provider/model/mode hidden behind ⚙</span><input id="ov_compact" type="checkbox" /></div>
+    <div class="switch"><span>Show model picker</span><input id="ov_showModel" type="checkbox" /></div>
+    <div class="switch"><span>Show mode bar</span><input id="ov_showModes" type="checkbox" /></div>
+    <div class="switch"><span>Show confidence badge</span><input id="ov_showConf" type="checkbox" /></div>
+    <div class="switch"><span>Show “reasoning” section</span><input id="ov_showReasoning" type="checkbox" /></div>
+    <div class="switch"><span>Show provider · model line</span><input id="ov_showMeta" type="checkbox" /></div>
+    <div class="switch"><span>Show action buttons (copy / regenerate / verify)</span><input id="ov_showActions" type="checkbox" /></div>
+    <div class="switch"><span>Show follow-up box</span><input id="ov_showFollowup" type="checkbox" /></div>
+
+    <label style="margin-top:18px">Providers to show in the pickers</label>
+    <div id="visProviders" class="checks"></div>
+    <label>Modes to show</label>
+    <div id="visModes" class="checks"></div>
+  </div>
+
+  <div class="card">
+    <h2>Setup &amp; troubleshooting</h2>
+    <div class="help-prov">
+      <h3>Your subscription — ChatGPT / Claude / Gemini (no key)</h3>
+      <ol>
+        <li>Pick a “(your login)” provider in the popup.</li>
+        <li>Stay signed in at chatgpt.com / claude.ai / gemini.google.com — Solv opens the tab the first time.</li>
+        <li>It now works even when that tab is in the <b>background</b> (it reads the reply as it streams, not on a timer).</li>
+        <li>If a site is stubborn, turn on “briefly focus the AI tab while solving” above for guaranteed capture.</li>
+        <li>If it can’t find the chat box: log in, keep the tab open, retry. Text only for now.</li>
+      </ol>
+    </div>
+    <div class="help-prov">
+      <h3>API key — OpenAI / Anthropic / Gemini</h3>
+      <ol>
+        <li>Paste the matching key above and Save.</li>
+        <li>“Key not accepted” → re-copy with no spaces and confirm billing/credit is on.</li>
+        <li>Pick a vision model (gpt-4o, Claude, Gemini) for image questions.</li>
+      </ol>
+    </div>
+    <div class="help-prov">
+      <h3>Ollama (local, free)</h3>
+      <ol>
+        <li>Install from ollama.com, then run <code>ollama serve</code>.</li>
+        <li>Pull a model: <code>ollama pull llama3.2</code> (or <code>llava</code> for images).</li>
+        <li>“Can’t reach Ollama” → make sure it’s running and the URL above matches.</li>
+      </ol>
+    </div>
+    <div class="help-prov">
+      <h3>Chrome built-in AI (on-device, no key)</h3>
+      <ol>
+        <li>Use a recent Chrome; enable the Prompt API / Gemini Nano at <code>chrome://flags</code>.</li>
+        <li>First use downloads the model — wait a minute, then retry.</li>
+        <li>Built-in AI runs in the in-page overlay (not the side panel).</li>
+      </ol>
+    </div>
+    <p class="note">Still stuck? Every error in the overlay/side panel shows step-by-step fixes and a Retry button.</p>
+  </div>
+
+  <div class="save-bar">
+    <button id="save">Save settings</button>
+    <span class="saved" id="saved">✓ Saved</span>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="options.js"></script>
+</body>
+</html>

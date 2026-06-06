@@ -1,0 +1,16 @@
+# OS / editor
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# preview/scratch
+_preview.html
+index.html
+.claude/
+
+# packaging
+*.zip
+*.crx
+*.pem
+node_modules/

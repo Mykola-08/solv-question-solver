@@ -1,0 +1,59 @@
+const SOLV = globalThis.SOLV;
+const $ = (id) => document.getElementById(id);
+const HINTS = {
+  web_chatgpt: "Uses your logged-in ChatGPT tab — your subscription, no key. Stay signed in at chatgpt.com. Text only.",
+  web_claude: "Uses your logged-in Claude tab — your subscription, no key. Stay signed in at claude.ai. Text only.",
+  web_gemini: "Uses your logged-in Gemini tab — your subscription, no key. Stay signed in at gemini.google.com. Text only.",
+  openai: "Needs an OpenAI API key (Settings). gpt-4o/4.1 read images.",
+  anthropic: "Needs an Anthropic API key. Claude models read images.",
+  gemini: "Needs a Google AI Studio key. Gemini reads images.",
+  ollama: "Local — no key. Run `ollama serve`. Use a vision model (llava) for images.",
+  builtin: "On-device Gemini Nano. No key. Needs a recent Chrome with the Prompt API."
+};
+let settings = {};
+
+async function load() {
+  settings = await new Promise((res) => chrome.runtime.sendMessage({ type: "getSettings" }, res));
+  const allow = settings.visibleProviders || [];
+  $("provider").innerHTML = SOLV.PROVIDER_GROUPS.map((g) => {
+    const items = g.items.filter((p) => !allow.length || allow.includes(p) || p === settings.provider);
+    return items.length ? `<optgroup label="${g.label}">` +
+      items.map((p) => `<option value="${p}"${p === settings.provider ? " selected" : ""}>${SOLV.PROVIDER_LABELS[p]}</option>`).join("") +
+      `</optgroup>` : "";
+  }).join("");
+  syncModel();
+}
+function syncModel() {
+  const p = $("provider").value;
+  const sel = $("model"), custom = $("modelCustom"), list = SOLV.MODELS[p] || [];
+  $("keyHint").textContent = HINTS[p];
+  if (SOLV.WEB_PROVIDERS.has(p)) { sel.innerHTML = `<option>set in the site</option>`; sel.disabled = true; custom.hidden = true; return; }
+  sel.disabled = false;
+  const cur = settings.models?.[p] || SOLV.DEFAULT_MODELS[p];
+  const ids = list.map((m) => m.id);
+  let html = list.map((m) => `<option value="${m.id}"${m.id === cur && ids.includes(cur) ? " selected" : ""}>${m.label}</option>`).join("");
+  html += `<option value="__custom__"${!ids.includes(cur) ? " selected" : ""}>Custom…</option>`;
+  sel.innerHTML = html;
+  custom.hidden = ids.includes(cur);
+  custom.value = ids.includes(cur) ? "" : cur;
+}
+$("provider").addEventListener("change", syncModel);
+$("model").addEventListener("change", () => { $("modelCustom").hidden = $("model").value !== "__custom__"; if (!$("modelCustom").hidden) $("modelCustom").focus(); });
+
+$("save").addEventListener("click", async () => {
+  const p = $("provider").value;
+  settings.provider = p;
+  if (!SOLV.WEB_PROVIDERS.has(p)) {
+    const chosen = $("model").value === "__custom__" ? ($("modelCustom").value.trim() || SOLV.DEFAULT_MODELS[p]) : $("model").value;
+    settings.models = { ...settings.models, [p]: chosen };
+  }
+  await chrome.storage.local.set({ settings });
+  const s = $("status"); s.classList.add("show"); setTimeout(() => s.classList.remove("show"), 1200);
+});
+$("opts").addEventListener("click", () => chrome.runtime.openOptionsPage());
+$("side").addEventListener("click", async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  try { await chrome.sidePanel.open({ tabId: tab.id }); window.close(); } catch (e) {}
+});
+
+load();

@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Solv — Inline Question Solver",
+  "version": "1.0.0",
+  "description": "Select text or screenshot a question and get a direct AI answer inline. Works with your own API key, local Ollama, or Chrome's built-in AI.",
+  "permissions": ["storage", "activeTab", "scripting", "contextMenus", "tabs", "sidePanel"],
+  "host_permissions": [
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*"
+  ],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Solv",
+    "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+  },
+  "options_page": "options.html",
+  "side_panel": { "default_path": "sidepanel.html" },
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["config.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["builtin-ai.js"], "matches": ["<all_urls>"] }
+  ],
+  "commands": {
+    "solve-selection": {
+      "suggested_key": { "default": "Alt+A" },
+      "description": "Solve the selected text"
+    },
+    "solve-region": {
+      "suggested_key": { "default": "Alt+S" },
+      "description": "Screenshot a region and solve it"
+    }
+  }
+}

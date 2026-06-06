@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Solv — Build Plan</title>
+<style>
+  :root{
+    --bg:#0b0c10; --panel:#14161d; --line:#222634; --ink:#e9ecf2; --mut:#9aa3b2;
+    --accent:#6c8cff; --accent2:#9b6cff; --good:#3ad29f; --warn:#ffcf6b; --bad:#ff6b7d;
+    --radius:14px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#1a1f2e,transparent),var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;padding:48px 20px 96px}
+  .wrap{max-width:920px;margin:0 auto}
+  h1{font-size:38px;margin:0 0 6px;letter-spacing:-.02em}
+  h1 .dot{color:var(--accent)}
+  .sub{color:var(--mut);margin:0 0 36px;font-size:16px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent);margin:40px 0 14px}
+  .card{background:linear-gradient(180deg,var(--panel),#10121a);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin:0 0 14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:680px){.grid{grid-template-columns:1fr}}
+  .card h3{margin:0 0 8px;font-size:16px}
+  .card p{margin:0;color:var(--mut);font-size:14px}
+  ul{margin:8px 0 0;padding-left:18px;color:var(--mut);font-size:14px}
+  li{margin:4px 0}
+  code{font-family:var(--mono);background:#1b1f2b;padding:2px 6px;border-radius:6px;color:#cdd6ff;font-size:13px}
+  .tag{display:inline-block;font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut);margin:0 6px 6px 0}
+  .tag.on{color:var(--good);border-color:rgba(58,210,159,.4);background:rgba(58,210,159,.08)}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--mut)}
+  .pill{background:#1b1f2b;border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+  .arr{color:var(--accent)}
+  .files{font-family:var(--mono);font-size:13px;color:var(--mut)}
+  .files b{color:var(--ink)}
+  footer{margin-top:48px;color:var(--mut);font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Solv<span class="dot">.</span></h1>
+  <p class="sub">A minimalist Chrome extension that solves questions inline — select text or screenshot a diagram, get a direct AI answer on the page, no copy-paste back-and-forth.</p>
+
+  <h2>What it's for</h2>
+  <div class="card">
+    <p>Checking homework. You're working through questions, you want a fast second opinion from an AI without leaving the page or tabbing to ChatGPT. Highlight → answer appears. Screenshot a figure → answer appears. Compare against your own work.</p>
+  </div>
+
+  <h2>Backends — bring your own access</h2>
+  <div class="grid">
+    <div class="card"><h3>Your subscription (no key)</h3><p>Drives your already-logged-in <b>ChatGPT / Claude / Gemini</b> tab. Solv types the question into the web app and reads the streamed reply back — uses the plan you already pay for.</p></div>
+    <div class="card"><h3>API key</h3><p>OpenAI, Anthropic (Claude), or Google Gemini. Paste a key once, stored locally in the browser. Supports thinking/reasoning models.</p></div>
+    <div class="card"><h3>Local models</h3><p>Ollama on <code>localhost:11434</code>. Fully offline, free, private. Any pulled model.</p></div>
+    <div class="card"><h3>Chrome built-in AI</h3><p>Gemini Nano via the on-device <code>LanguageModel</code> Prompt API. Zero key, runs locally inside Chrome.</p></div>
+    <div class="card"><h3>Multimodal</h3><p>Text questions go as text. Diagrams/handwriting go as images to vision-capable models (GPT-4o, Claude, Gemini).</p></div>
+  </div>
+
+  <h2>Core flow</h2>
+  <div class="card">
+    <div class="flow">
+      <span class="pill">Select text / drag a region</span><span class="arr">→</span>
+      <span class="pill">floating "Solve" pill</span><span class="arr">→</span>
+      <span class="pill">background calls provider (streaming)</span><span class="arr">→</span>
+      <span class="pill">answer streams into overlay</span><span class="arr">→</span>
+      <span class="pill">confidence bar + auto-verify</span>
+    </div>
+  </div>
+
+  <h2>Features</h2>
+  <div class="card">
+    <span class="tag on">Select-to-solve</span>
+    <span class="tag on">Region screenshot → vision</span>
+    <span class="tag on">Streaming answers</span>
+    <span class="tag on">Confidence % parsed from model</span>
+    <span class="tag on">Auto re-solve when confidence low</span>
+    <span class="tag on">Independent "Verify" second pass</span>
+    <span class="tag on">Draggable minimalist overlay</span>
+    <span class="tag on">Keyboard shortcuts (Alt+A / Alt+S)</span>
+    <span class="tag on">Copy answer</span>
+    <span class="tag on">Follow-up ask box</span>
+    <span class="tag on">Provider switcher in popup</span>
+    <span class="tag on">Light/dark, reduced-motion aware</span>
+    <span class="tag on">Math/LaTeX-friendly rendering</span>
+  </div>
+
+  <h2>Prompting strategy (so the model stays sharp)</h2>
+  <div class="card">
+    <ul>
+      <li>System prompt forces: <b>answer first</b>, then a 2–4 line justification. No filler, no "as an AI", no hedging.</li>
+      <li>Multiple-choice → state the letter <i>and</i> the option text.</li>
+      <li>Math → compact key steps, final boxed answer.</li>
+      <li>If the question is ambiguous or context is missing, say exactly what's missing instead of guessing.</li>
+      <li>Every reply ends with <code>CONFIDENCE: NN%</code> — parsed by the UI into a bar.</li>
+      <li>If confidence &lt; threshold, the extension silently runs one <b>independent</b> re-solve and flags any disagreement.</li>
+    </ul>
+  </div>
+
+  <h2>Architecture (Manifest V3, no build step)</h2>
+  <div class="card files">
+    <div><b>manifest.json</b> — MV3, module service worker, content script on all pages</div>
+    <div><b>background.js</b> — provider routing + streaming, screenshot capture</div>
+    <div><b>providers.js</b> — unified <code>streamChat()</code> for OpenAI / Anthropic / Gemini / Ollama</div>
+    <div><b>content.js</b> — selection pill, region capture, overlay panel, confidence logic</div>
+    <div><b>content.css</b> — the minimalist overlay UI + animations</div>
+    <div><b>builtin-ai.js</b> — main-world bridge for Chrome's on-device LanguageModel</div>
+    <div><b>popup.html / popup.js</b> — quick provider + model switch</div>
+    <div><b>options.html / options.js</b> — keys, models, thresholds, theme</div>
+    <div><b>icons/</b> — generated gradient icons</div>
+  </div>
+
+  <footer>Load unpacked in <code>chrome://extensions</code> → Developer mode → Load unpacked → pick this folder.</footer>
+</div>
+</body>
+</html>
