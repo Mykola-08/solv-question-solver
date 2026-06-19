@@ -3,6 +3,11 @@
   if (window.__solvLoaded) return;
   window.__solvLoaded = true;
   const SOLV = globalThis.SOLV;
+  const R = SOLV.render;
+  const escapeHtml = R.escapeHtml;
+  const renderMd = R.md;
+  const parseConfidence = R.parseConfidence;
+  const stripConfidence = R.stripConfidence;
 
   let settings = null;
   const getSettings = () =>
@@ -20,7 +25,7 @@
     (document.head || document.documentElement).appendChild(s);
     s.remove();
   }
-  function builtinSolve(messages, image, onToken) {
+  function builtinSolve(messages, image, onToken, signal) {
     ensureBuiltinBridge();
     return new Promise((resolve, reject) => {
       const id = "b" + Math.random().toString(36).slice(2);
@@ -32,17 +37,22 @@
         else if (d.type === "error") { window.removeEventListener("message", handler); reject(new Error(d.error)); }
       };
       window.addEventListener("message", handler);
+      signal?.addEventListener("abort", () => {
+        window.removeEventListener("message", handler);
+        reject(new Error("aborted"));
+      }, { once: true });
       window.postMessage({ source: "solv", type: "builtin-solve", id, messages, image }, "*");
     });
   }
 
   // ---------- transport ----------
-  function runSolve({ messages, image, onToken }) {
-    if (settings.provider === "builtin") return builtinSolve(messages, image, onToken);
+  function runSolve({ messages, image, onToken, signal }) {
+    if (settings.provider === "builtin") return builtinSolve(messages, image, onToken, signal);
     return new Promise((resolve, reject) => {
       const port = chrome.runtime.connect({ name: "solv-stream" });
       let settled = false, gotToken = false;
       const finish = (fn, arg) => { if (settled) return; settled = true; try { port.disconnect(); } catch {} fn(arg); };
+      signal?.addEventListener("abort", () => finish(reject, new Error("aborted")), { once: true });
       port.onMessage.addListener((m) => {
         if (m.type === "token") { gotToken = true; onToken(m.text); }
         else if (m.type === "ping") { /* keepalive */ }
@@ -55,51 +65,7 @@
     });
   }
 
-  // ---------- markdown + math ----------
-  const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-  function renderTable(block) {
-    const rows = block.trim().split("\n").map((r) => r.trim());
-    if (rows.length < 2 || !/^\|?\s*:?-{2,}/.test(rows[1])) return null;
-    const cells = (r) => r.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
-    const head = cells(rows[0]);
-    const body = rows.slice(2).map(cells);
-    const th = head.map((c) => `<th>${c}</th>`).join("");
-    const trs = body.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("");
-    return `<table class="solv-table"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
-  }
-  function renderMd(text) {
-    const fences = [];
-    let h = escapeHtml(SOLV.latexToReadable(text) + "\n").replace(/```([\s\S]*?)```/g, (_, c) => {
-      fences.push(`<pre>${c.replace(/^\n+|\n+$/g, "")}</pre>`); return `\x00${fences.length - 1}\x00`;
-    });
-    h = h.replace(/(?:^|\n)((?:\|?.*\|.*\n){2,})/g, (m, blk) => { const t = renderTable(blk); return t ? "\n" + t : m; });
-    h = h.replace(/`([^`]+)`/g, "<code>$1</code>");
-    h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    h = h.replace(/(?<!\w)\*([^*\n]+)\*(?!\w)/g, "<em>$1</em>");
-    h = h.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-    h = h.replace(/(^|\n)\s*#{3,4}\s*(.+)/g, '$1<div class="solv-h2">$2</div>');
-    h = h.replace(/(^|\n)\s*#{1,2}\s*(.+)/g, '$1<div class="solv-h1">$2</div>');
-    h = h.replace(/(^|\n)\s*&gt;\s?(.+)/g, '$1<blockquote>$2</blockquote>');
-    h = h.replace(/(^|\n)\s*[-*]\s+(.+)/g, '$1<div class="solv-li">• $2</div>');
-    h = h.replace(/(^|\n)\s*(\d+)\.\s+(.+)/g, '$1<div class="solv-li">$2. $3</div>');
-    h = h.replace(/(^|\n)\s*---+\s*(?=\n|$)/g, '$1<hr>');
-    h = h.replace(/\n/g, "<br>");
-    h = h.replace(/(<\/(?:div|pre|table|blockquote|hr)>)<br>/g, "$1");
-    h = h.replace(/<br>(<(?:div|pre|table|blockquote|hr))/g, "$1");
-    h = h.replace(/\x00(\d+)\x00/g, (_, i) => fences[+i]);
-    return h;
-  }
-  const parseConfidence = (t) => { const m = /CONFIDENCE:\s*(\d{1,3})\s*%/i.exec(t); return m ? Math.min(100, +m[1]) : null; };
-  const stripConfidence = (t) => t.replace(/\n?\s*CONFIDENCE:\s*\d{1,3}\s*%\s*$/i, "").trim();
   const firstLine = (t) => stripConfidence(t).split("\n").map((l) => l.trim()).filter(Boolean)[0]?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
-  function extractAnswer(text) {
-    const body = stripConfidence(text);
-    const lines = body.split("\n");
-    const idx = lines.findIndex((l) => l.trim());
-    if (idx < 0) return { answer: body, rest: "" };
-    const answer = lines[idx].trim().replace(/^\**\s*(final\s+answer|answer|hint)\s*[:\-]\s*/i, "");
-    return { answer, rest: lines.slice(idx + 1).join("\n").trim() };
-  }
 
   // ---------- selection pill ----------
   let pill = null;
@@ -177,9 +143,9 @@
       <div class="solv-head">
         <div class="solv-brand"><span class="solv-logo">✦</span> Solv</div>
         <div class="solv-head-actions">
-          <button class="solv-icon solv-tune" title="Provider / model / mode">⚙</button>
-          <button class="solv-icon solv-side" title="Continue in side panel chat">⇥</button>
-          <button class="solv-icon solv-close" title="Close (Esc)">✕</button>
+          <button class="solv-icon solv-tune" title="Provider / model / mode" aria-label="Provider, model, and mode">⚙</button>
+          <button class="solv-icon solv-side" title="Continue in side panel chat" aria-label="Continue in side panel chat">⇥</button>
+          <button class="solv-icon solv-close" title="Close (Esc)" aria-label="Close">✕</button>
         </div>
       </div>
       <div class="solv-controls">
@@ -198,14 +164,14 @@
         <div class="solv-verify"></div>
         <div class="solv-status"></div>
         <div class="solv-actions" hidden>
-          <button class="solv-act solv-copy" title="Copy answer">⧉</button>
-          <button class="solv-act solv-regen" title="Regenerate">↻</button>
-          <button class="solv-act solv-reverify" title="Double-check independently">✓✓</button>
+          <button class="solv-act solv-copy" title="Copy answer" aria-label="Copy answer">⧉</button>
+          <button class="solv-act solv-regen" title="Regenerate" aria-label="Regenerate answer">↻</button>
+          <button class="solv-act solv-reverify" title="Double-check independently" aria-label="Double-check independently">✓✓</button>
         </div>
       </div>
       <div class="solv-foot">
         <input class="solv-followup" placeholder="Ask a follow-up…" />
-        <button class="solv-send" title="Send">↑</button>
+        <button class="solv-send" title="Send" aria-label="Send follow-up">↑</button>
       </div>`;
     document.body.appendChild(panel);
 
@@ -266,27 +232,20 @@
   }
 
   // ---------- state ----------
-  const state = { messages: [], answer: "", image: null, busy: false, abort: null, mode: "short", lastQuestion: null, lastImage: null };
+  const state = { messages: [], answer: "", image: null, busy: false, abort: null, mode: "short", lastQuestion: null, lastImage: null, runId: 0 };
   const abortCurrent = () => { try { state.abort?.(); } catch {} state.abort = null; };
   const restart = () => startSolve({ questionText: state.lastQuestion, image: state.lastImage });
 
   async function startSolve({ questionText, image }) {
     settings = await getSettings();
     if (!hasCredsFor(settings)) { openOptionsHint(); return; }
-    if (image && SOLV.WEB_PROVIDERS.has(settings.provider)) {
-      makePanel(); panel.classList.remove("solv-collapsed");
-      panel.querySelector(".solv-question").textContent = "🖼 Image question";
-      showError("Image questions aren't supported with login providers", {
-        title: "Switch to a vision provider",
-        steps: ["Pick OpenAI, Claude or Gemini (API) — they read images.", "Or use a local vision model like llava with Ollama."]
-      });
-      return;
-    }
     makePanel(); panel.classList.remove("solv-collapsed");
     syncToolbar();
     state.lastQuestion = questionText || null; state.lastImage = image || null;
     const qEl = panel.querySelector(".solv-question");
-    qEl.textContent = image ? "🖼 Image question" : questionText;
+    qEl.classList.toggle("has-image", !!image);
+    if (image) qEl.innerHTML = `<div class="solv-question-image"><img src="${image}" alt="" /><span>${escapeHtml(questionText || "Image question")}</span></div>`;
+    else qEl.textContent = questionText;
     qEl.title = questionText || "";
     state.image = image || null;
     state.messages = [
@@ -303,6 +262,8 @@
 
   async function stream() {
     if (state.busy) abortCurrent();
+    const runId = ++state.runId;
+    const controller = new AbortController();
     state.busy = true; state.answer = "";
     const ansEl = panel.querySelector(".solv-answer");
     const finalEl = panel.querySelector(".solv-final");
@@ -310,21 +271,24 @@
     const verifyEl = panel.querySelector(".solv-verify");
     finalEl.hidden = true; finalEl.innerHTML = ""; ansEl.innerHTML = ""; verifyEl.innerHTML = "";
     const act = panel.querySelector(".solv-actions"); if (act) act.hidden = true;
-    const waitMsg = SOLV.WEB_PROVIDERS.has(settings.provider) ? "asking your logged-in session…" : "thinking…";
+    const waitMsg = SOLV.WEB_PROVIDERS.has(settings.provider)
+      ? (state.image ? "attaching image in your logged-in session…" : "asking your logged-in session…")
+      : "thinking…";
     statusEl.innerHTML = `<span class="solv-dots"><i></i><i></i><i></i></span> ${waitMsg}`;
-    let aborted = false; state.abort = () => { aborted = true; };
+    let aborted = false; state.abort = () => { aborted = true; controller.abort(); };
     try {
-      await runSolve({ messages: state.messages, image: state.image, onToken: (t) => {
-        if (aborted) return; state.answer += t; ansEl.innerHTML = renderMd(stripConfidence(state.answer));
+      await runSolve({ messages: state.messages, image: state.image, signal: controller.signal, onToken: (t) => {
+        if (aborted || runId !== state.runId) return; state.answer += t; ansEl.innerHTML = renderMd(stripConfidence(state.answer));
       } });
-      if (aborted) return;
+      if (aborted || runId !== state.runId) return;
       statusEl.textContent = "";
       state.messages.push({ role: "assistant", content: state.answer });
       renderStructured(finalEl, ansEl);
       maybeAutoVerify();
     } catch (e) {
+      if (String(e.message || e) === "aborted") return;
       showError(String(e.message || e), SOLV.friendlyError(String(e.message || e), settings.provider));
-    } finally { state.busy = false; }
+    } finally { if (runId === state.runId) state.busy = false; }
   }
 
   function confBadge(conf) {
@@ -365,7 +329,7 @@
           { role: "user", content: state.messages.find((m) => m.role === "user")?.content || "" },
           { role: "user", content: "Solve this independently from scratch. Do not assume any earlier answer was correct. Re-derive carefully and double-check the arithmetic." }
         ],
-        image: state.image, onToken: (t) => { second += t; }
+        image: state.image, signal: new AbortController().signal, onToken: (t) => { second += t; }
       });
       const agree = firstLine(original) && firstLine(original) === firstLine(second);
       const c2 = parseConfidence(second);
@@ -384,13 +348,15 @@
 
   // Hand the current question/answer/conversation over to the side panel chat.
   function delegateToSide() {
+    const imageTooLarge = state.lastImage && state.lastImage.length > 4_000_000;
     const handoff = {
       ts: Date.now(),
       provider: settings.provider,
       model: SOLV.WEB_PROVIDERS.has(settings.provider) ? null : modelFor(settings.provider),
       mode: state.mode,
       question: state.lastQuestion,
-      image: state.lastImage || null,
+      image: imageTooLarge ? null : (state.lastImage || null),
+      imageOmitted: !!imageTooLarge,
       answer: state.answer || "",
       messages: state.messages.filter((m) => m.role !== "system")
     };
@@ -424,7 +390,7 @@
   function startRegion() {
     const layer = document.createElement("div");
     layer.className = "solv-region";
-    layer.innerHTML = `<div class="solv-region-hint">Drag to capture · Esc to cancel</div><div class="solv-rect" hidden></div>`;
+    layer.innerHTML = `<div class="solv-region-hint">Drag around the question · Esc to cancel</div><div class="solv-rect" hidden></div>`;
     document.body.appendChild(layer);
     const rectEl = layer.querySelector(".solv-rect");
     let sx, sy, drawing = false;
@@ -454,9 +420,13 @@
         img.onload = () => {
           const dpr = window.devicePixelRatio || 1;
           const canvas = document.createElement("canvas");
-          canvas.width = w * dpr; canvas.height = h * dpr;
-          canvas.getContext("2d").drawImage(img, x * dpr, y * dpr, w * dpr, h * dpr, 0, 0, w * dpr, h * dpr);
-          resolve(canvas.toDataURL("image/png"));
+          const rawW = Math.round(w * dpr), rawH = Math.round(h * dpr);
+          const maxSide = 1800;
+          const scale = Math.min(1, maxSide / Math.max(rawW, rawH));
+          canvas.width = Math.max(1, Math.round(rawW * scale));
+          canvas.height = Math.max(1, Math.round(rawH * scale));
+          canvas.getContext("2d").drawImage(img, x * dpr, y * dpr, rawW, rawH, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.9));
         };
         img.onerror = () => resolve(null);
         img.src = resp.dataUrl;

@@ -6,19 +6,26 @@
   --sv-grad: linear-gradient(120deg, var(--sv-g1), var(--sv-g2) 55%, var(--sv-g3));
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
   box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 .solv-root *, .solv-pill * { box-sizing: border-box; }
+.solv-root button, .solv-root select, .solv-root input, .solv-pill { touch-action: manipulation; }
+.solv-root button:focus-visible, .solv-root select:focus-visible, .solv-root input:focus-visible {
+  outline: 2px solid rgba(255,255,255,.72);
+  outline-offset: 2px;
+}
 
 /* selection pill */
 .solv-pill {
   position: absolute; z-index: 2147483646;
   display: inline-flex; align-items: center; gap: 6px;
-  background: var(--sv-grad); color: #fff; font-size: 13px; font-weight: 600;
-  padding: 7px 13px; border-radius: 999px; cursor: pointer; user-select: none;
+  background: var(--sv-grad); color: #fff; font-size: 13px; font-weight: 650;
+  min-height: 36px; padding: 7px 13px; border-radius: 999px; cursor: pointer; user-select: none;
   box-shadow: 0 6px 22px rgba(124,108,255,.5);
   animation: solv-pop .16s cubic-bezier(.2,.9,.3,1.2);
 }
-.solv-pill:hover { filter: brightness(1.08); }
+@media (hover: hover) and (pointer: fine) { .solv-pill:hover { filter: brightness(1.08); } }
 .solv-pill-glyph { font-size: 12px; }
 @keyframes solv-pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
@@ -28,7 +35,7 @@
   width: 372px; max-width: calc(100vw - 28px); max-height: 82vh;
   display: flex; flex-direction: column;
   background: var(--sv-bg); color: var(--sv-ink);
-  border: 1px solid var(--sv-line); border-radius: 22px; overflow: hidden;
+  border: 1px solid var(--sv-line); border-radius: 12px; overflow: hidden;
   box-shadow: 0 30px 70px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,.03);
   animation: solv-slide .24s cubic-bezier(.2,.8,.25,1);
   font-size: 14px; line-height: 1.5;
@@ -48,10 +55,11 @@
 .solv-head-actions { display: flex; gap: 2px; }
 .solv-icon {
   background: transparent; border: none; color: var(--sv-mut); cursor: pointer;
-  width: 30px; height: 30px; border-radius: 50%; font-size: 13px; line-height: 1;
-  display: grid; place-items: center; transition: background .15s, color .15s;
+  min-width: 34px; width: 34px; height: 34px; border-radius: 8px; font-size: 13px; line-height: 1;
+  display: grid; place-items: center; transition: background-color .15s ease, color .15s ease, transform .1s ease;
 }
-.solv-icon:hover { background: rgba(255,255,255,.07); color: var(--sv-ink); }
+@media (hover: hover) and (pointer: fine) { .solv-icon:hover { background: rgba(255,255,255,.07); color: var(--sv-ink); } }
+.solv-icon:active { transform: scale(.97); }
 .solv-controls-open .solv-tune { background: rgba(124,108,255,.18); color: #cdd6ff; }
 
 /* collapsible controls (provider/model/mode) — hidden by default in compact mode */
@@ -62,7 +70,7 @@
 .solv-tools { display: flex; gap: 8px; padding-top: 4px; }
 .solv-select {
   flex: 1; min-width: 0; background: rgba(255,255,255,.04); border: 1px solid var(--sv-line); color: var(--sv-ink);
-  border-radius: 11px; padding: 8px 10px; font-size: 12px; font-family: inherit; outline: none; cursor: pointer;
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none; cursor: pointer;
 }
 .solv-select:focus { border-color: var(--sv-g1); }
 .solv-select:disabled { opacity: .6; cursor: default; }
@@ -70,10 +78,11 @@
 .solv-modes { display: flex; gap: 5px; padding-top: 8px; }
 .solv-mode {
   flex: 1; background: rgba(255,255,255,.04); border: 1px solid var(--sv-line); color: var(--sv-mut);
-  border-radius: 999px; padding: 6px 0; font-size: 11.5px; font-weight: 600; cursor: pointer; font-family: inherit;
-  transition: background .15s, color .15s, border-color .15s;
+  min-height: 32px; border-radius: 8px; padding: 6px 8px; font-size: 11.5px; font-weight: 650; cursor: pointer; font-family: inherit;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform .1s ease;
 }
-.solv-mode:hover { color: var(--sv-ink); }
+@media (hover: hover) and (pointer: fine) { .solv-mode:hover { color: var(--sv-ink); } }
+.solv-mode:active { transform: scale(.98); }
 .solv-mode.is-on { background: var(--sv-grad); color: #fff; border-color: transparent; box-shadow: 0 4px 14px rgba(124,108,255,.4); }
 
 .solv-body { padding: 14px; overflow-y: auto; }
@@ -81,7 +90,7 @@
 
 /* prominent final answer */
 .solv-final {
-  margin-bottom: 12px; padding: 12px 14px; border-radius: 12px;
+  margin-bottom: 12px; padding: 12px 14px; border-radius: 10px;
   background: linear-gradient(180deg, rgba(108,140,255,.14), rgba(108,140,255,.06));
   border: 1px solid rgba(108,140,255,.35);
   animation: solv-pop .18s cubic-bezier(.2,.9,.3,1.2);
@@ -93,14 +102,14 @@
 .solv-final-text code { font-size: 13px; }
 
 /* compact confidence badge */
-.solv-conf-badge { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; color: #061018;
+.solv-conf-badge { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; color: #061018; font-variant-numeric: tabular-nums;
   background: var(--sv-good); white-space: nowrap; }
 .solv-conf-badge[data-tone="warn"] { background: var(--sv-warn); }
 .solv-conf-badge[data-tone="bad"] { background: var(--sv-bad); color: #2a0a10; }
 
 /* multiple-choice answer */
 .solv-choice { display: flex; align-items: center; gap: 12px; }
-.solv-choice-badge { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+.solv-choice-badge { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center;
   font-size: 22px; font-weight: 800; color: #fff; background: var(--sv-grad); box-shadow: 0 6px 18px rgba(124,108,255,.5); }
 .solv-choice-text { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.4; }
 
@@ -110,7 +119,7 @@
 .solv-verify:empty { margin: 0; }
 
 /* collapsible reasoning */
-.solv-reason { border: 1px solid var(--sv-line); border-radius: 10px; overflow: hidden; background: #12141b; }
+.solv-reason { border: 1px solid var(--sv-line); border-radius: 8px; overflow: hidden; background: #12141b; }
 .solv-reason summary {
   cursor: pointer; padding: 9px 12px; font-size: 12px; font-weight: 600; color: var(--sv-mut);
   list-style: none; user-select: none;
@@ -139,6 +148,13 @@
   max-height: 54px; overflow: hidden; padding-left: 10px; border-left: 2px solid var(--sv-line);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
+.solv-question.has-image { display: block; max-height: none; -webkit-line-clamp: unset; }
+.solv-question-image { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.solv-question-image img {
+  flex: 0 0 auto; width: 58px; height: 44px; border-radius: 8px; object-fit: cover;
+  border: 1px solid var(--sv-line); background: #0f1117;
+}
+.solv-question-image span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .solv-answer { white-space: normal; word-wrap: break-word; }
 .solv-answer strong { color: #fff; }
 .solv-answer code { background: #0f1117; border: 1px solid var(--sv-line); padding: 1px 5px; border-radius: 5px; font-size: 12.5px; }
@@ -151,7 +167,7 @@
 .solv-err { color: var(--sv-bad); }
 
 /* friendly error card */
-.solv-error-card { border: 1px solid rgba(255,107,125,.4); background: rgba(255,107,125,.07); border-radius: 11px; padding: 11px 13px; }
+.solv-error-card { border: 1px solid rgba(255,107,125,.4); background: rgba(255,107,125,.07); border-radius: 10px; padding: 11px 13px; }
 .solv-error-title { font-weight: 700; color: #ffb3bd; margin-bottom: 6px; }
 .solv-error-steps { margin: 0 0 9px; padding-left: 18px; color: var(--sv-mut); }
 .solv-error-steps li { margin: 3px 0; }
@@ -184,31 +200,32 @@
 .solv-actions { display: flex; gap: 4px; margin-top: 12px; }
 .solv-act {
   background: transparent; border: none; color: var(--sv-mut); cursor: pointer;
-  width: 32px; height: 32px; border-radius: 9px; font-size: 14px; line-height: 1;
-  display: grid; place-items: center; transition: background .15s, color .15s;
+  width: 36px; height: 36px; border-radius: 8px; font-size: 14px; line-height: 1;
+  display: grid; place-items: center; transition: background-color .15s ease, color .15s ease, transform .1s ease;
 }
-.solv-act:hover { background: rgba(255,255,255,.07); color: var(--sv-ink); }
+@media (hover: hover) and (pointer: fine) { .solv-act:hover { background: rgba(255,255,255,.07); color: var(--sv-ink); } }
+.solv-act:active { transform: scale(.97); }
 
 /* footer: pill input + circular send */
 .solv-foot { display: flex; gap: 8px; align-items: center; padding: 10px 12px 12px; }
 .solv-followup {
   flex: 1; background: rgba(255,255,255,.05); border: 1px solid var(--sv-line); color: var(--sv-ink);
-  border-radius: 999px; padding: 10px 16px; font-size: 13px; outline: none; font-family: inherit;
+  border-radius: 999px; padding: 10px 16px; font-size: 16px; outline: none; font-family: inherit;
 }
 .solv-followup:focus { border-color: var(--sv-g1); background: rgba(255,255,255,.07); }
 .solv-followup::placeholder { color: var(--sv-mut); }
 .solv-send {
-  flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
   background: var(--sv-grad); color: #fff; font-size: 15px; font-weight: 700; line-height: 1;
-  display: grid; place-items: center; box-shadow: 0 4px 14px rgba(124,108,255,.45); transition: filter .15s, transform .1s;
+  display: grid; place-items: center; box-shadow: 0 4px 14px rgba(124,108,255,.45); transition: filter .15s ease, transform .1s ease;
 }
-.solv-send:hover { filter: brightness(1.08); }
+@media (hover: hover) and (pointer: fine) { .solv-send:hover { filter: brightness(1.08); } }
 .solv-send:active { transform: scale(.94); }
 .solv-btn {
   background: rgba(255,255,255,.06); border: 1px solid var(--sv-line); color: var(--sv-ink);
-  border-radius: 9px; padding: 7px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+  border-radius: 8px; padding: 7px 12px; min-height: 34px; font-size: 12.5px; font-weight: 650; cursor: pointer; font-family: inherit;
 }
-.solv-btn:hover { background: rgba(255,255,255,.1); }
+@media (hover: hover) and (pointer: fine) { .solv-btn:hover { background: rgba(255,255,255,.1); } }
 .solv-open-opts { margin-top: 4px; }
 
 /* region capture */

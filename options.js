@@ -2,9 +2,9 @@ const DEFAULTS = {
   provider: "openai",
   keys: { openai: "", anthropic: "", gemini: "" },
   models: {
-    openai: "gpt-4o",
+    openai: "gpt-5.4-mini",
     anthropic: "claude-sonnet-4-6",
-    gemini: "gemini-2.0-flash",
+    gemini: "gemini-2.5-flash",
     ollama: "llama3.2",
     builtin: "gemini-nano"
   },
@@ -48,6 +48,34 @@ function readVisChecks(containerId, total) {
   return chosen.length === total ? [] : chosen; // [] = all
 }
 
+function readSettingsFromForm() {
+  return {
+    provider: $("provider").value,
+    keys: {
+      openai: $("key_openai").value.trim(),
+      anthropic: $("key_anthropic").value.trim(),
+      gemini: $("key_gemini").value.trim()
+    },
+    models: {
+      openai: $("model_openai").value.trim() || DEFAULTS.models.openai,
+      anthropic: $("model_anthropic").value.trim() || DEFAULTS.models.anthropic,
+      gemini: $("model_gemini").value.trim() || DEFAULTS.models.gemini,
+      ollama: $("model_ollama").value.trim() || DEFAULTS.models.ollama,
+      builtin: DEFAULTS.models.builtin
+    },
+    ollamaUrl: $("ollamaUrl").value.trim() || DEFAULTS.ollamaUrl,
+    confidenceThreshold: parseInt($("confidenceThreshold").value, 10),
+    autoVerify: $("autoVerify").checked,
+    webFocusTab: $("webFocusTab").checked,
+    defaultMode: $("defaultMode").value,
+    modePrompts: readModePrompts(),
+    overlay: OV_KEYS.reduce((o, k) => (o[k] = $("ov_" + k).checked, o), {}),
+    visibleProviders: readVisChecks("visProviders", SOLV.PROVIDER_GROUPS.flatMap((g) => g.items).length),
+    visibleModes: readVisChecks("visModes", SOLV.MODES.length),
+    theme: "auto"
+  };
+}
+
 async function load() {
   const stored = await chrome.storage.local.get("settings");
   const s = {
@@ -79,32 +107,37 @@ $("resetPrompts").addEventListener("click", () => { document.querySelectorAll("#
 
 $("confidenceThreshold").addEventListener("input", (e) => ($("thVal").textContent = e.target.value));
 
+document.querySelectorAll("[data-test]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const provider = btn.dataset.test;
+    const status = $("test_" + provider);
+    btn.disabled = true;
+    status.className = "test-status";
+    status.textContent = "Testing connection...";
+    chrome.runtime.sendMessage({ type: "testProvider", provider, settings: readSettingsFromForm() }, (resp) => {
+      btn.disabled = false;
+      const ok = !!resp?.ok;
+      status.className = "test-status " + (ok ? "good" : "bad");
+      status.textContent = ok ? resp.message : (resp?.error || "Connection test failed.");
+    });
+  });
+});
+
+document.querySelectorAll("[data-reset-model]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const provider = btn.dataset.resetModel;
+    const field = $("model_" + provider);
+    if (field && DEFAULTS.models[provider]) field.value = DEFAULTS.models[provider];
+    const status = $("test_" + provider);
+    if (status) {
+      status.className = "test-status";
+      status.textContent = `Reset to ${DEFAULTS.models[provider]}.`;
+    }
+  });
+});
+
 $("save").addEventListener("click", async () => {
-  const settings = {
-    provider: $("provider").value,
-    keys: {
-      openai: $("key_openai").value.trim(),
-      anthropic: $("key_anthropic").value.trim(),
-      gemini: $("key_gemini").value.trim()
-    },
-    models: {
-      openai: $("model_openai").value.trim() || DEFAULTS.models.openai,
-      anthropic: $("model_anthropic").value.trim() || DEFAULTS.models.anthropic,
-      gemini: $("model_gemini").value.trim() || DEFAULTS.models.gemini,
-      ollama: $("model_ollama").value.trim() || DEFAULTS.models.ollama,
-      builtin: DEFAULTS.models.builtin
-    },
-    ollamaUrl: $("ollamaUrl").value.trim() || DEFAULTS.ollamaUrl,
-    confidenceThreshold: parseInt($("confidenceThreshold").value, 10),
-    autoVerify: $("autoVerify").checked,
-    webFocusTab: $("webFocusTab").checked,
-    defaultMode: $("defaultMode").value,
-    modePrompts: readModePrompts(),
-    overlay: OV_KEYS.reduce((o, k) => (o[k] = $("ov_" + k).checked, o), {}),
-    visibleProviders: readVisChecks("visProviders", SOLV.PROVIDER_GROUPS.flatMap((g) => g.items).length),
-    visibleModes: readVisChecks("visModes", SOLV.MODES.length),
-    theme: "auto"
-  };
+  const settings = readSettingsFromForm();
   await chrome.storage.local.set({ settings });
   const el = $("saved"); el.classList.add("show");
   setTimeout(() => el.classList.remove("show"), 1400);

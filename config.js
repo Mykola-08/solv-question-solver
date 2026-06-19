@@ -44,16 +44,16 @@ MATH & SCIENCE — be rigorous:
   // Curated model lists per provider. Users can also type a custom id.
   const MODELS = {
     openai: [
-      { id: "gpt-4o", label: "GPT-4o (vision)" },
-      { id: "gpt-4o-mini", label: "GPT-4o mini (vision, cheap)" },
-      { id: "gpt-4.1", label: "GPT-4.1 (vision)" },
-      { id: "o4-mini", label: "o4-mini (reasoning)" },
-      { id: "o3", label: "o3 (reasoning)" }
+      { id: "gpt-5.4-mini", label: "GPT-5.4 mini (balanced)" },
+      { id: "gpt-5.4-nano", label: "GPT-5.4 nano (fast)" },
+      { id: "gpt-5.5", label: "GPT-5.5 (strongest)" },
+      { id: "gpt-4o", label: "GPT-4o (legacy vision)" },
+      { id: "gpt-4o-mini", label: "GPT-4o mini (legacy)" }
     ],
     anthropic: [
       { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (vision)" },
-      { id: "claude-opus-4-1", label: "Claude Opus 4.1 (vision)" },
-      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fast)" }
+      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fast)" },
+      { id: "claude-opus-4-1", label: "Claude Opus 4.1 (if enabled)" }
     ],
     gemini: [
       { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash (vision)" },
@@ -71,7 +71,7 @@ MATH & SCIENCE — be rigorous:
     web_chatgpt: [], web_claude: [], web_gemini: []
   };
   const DEFAULT_MODELS = {
-    openai: "gpt-4o", anthropic: "claude-sonnet-4-6", gemini: "gemini-2.0-flash",
+    openai: "gpt-5.4-mini", anthropic: "claude-sonnet-4-6", gemini: "gemini-2.5-flash",
     ollama: "llama3.2", builtin: "gemini-nano"
   };
 
@@ -86,7 +86,7 @@ MATH & SCIENCE — be rigorous:
     { label: "Local / on-device (no key)", items: ["ollama", "builtin"] }
   ];
   const WEB_PROVIDERS = new Set(["web_chatgpt", "web_claude", "web_gemini"]);
-  const VISION_PROVIDERS = new Set(["openai", "anthropic", "gemini", "ollama", "builtin"]);
+  const VISION_PROVIDERS = new Set(["openai", "anthropic", "gemini", "ollama", "builtin", "web_chatgpt", "web_claude", "web_gemini"]);
 
   // Map a raw error string to a friendly title + step-by-step fix.
   function friendlyError(msg, provider) {
@@ -104,8 +104,19 @@ MATH & SCIENCE — be rigorous:
         "Try a cheaper model in the model chooser." ] };
     if (/(model).*(not found|does not exist|404)|unknown model|no such model/.test(m))
       return { title: "Model not found", steps: [
-        provider === "ollama" ? "Run: ollama pull <model> (e.g. ollama pull llama3.2)." : "Pick a different model in the model chooser.",
+        provider === "ollama" ? "Run: ollama pull <model> (e.g. ollama pull llama3.2)." : "Pick the recommended default model in Settings, then test again.",
+        provider === "anthropic" ? "Opus access can be account-limited; Sonnet is the safest default." : "Some model ids are account, region, or API-version limited.",
         "Make sure the model id is spelled exactly right." ], action: "options" };
+    if (/image.*(large|invalid|unsupported)|unsupported image|capture.*again/.test(m))
+      return { title: "Image couldn't be sent", steps: [
+        "Capture a smaller region around just the question.",
+        "Use PNG, JPEG, WebP, or GIF.",
+        "If the page is zoomed in, zoom out and capture again." ] };
+    if (WEB_PROVIDERS.has(provider) && /(attach|image).*logged-in|couldn't attach the image|file input|drop/.test(m))
+      return { title: "Couldn't attach image to the AI tab", steps: [
+        "Open the logged-in AI tab and make sure image upload is available for your account.",
+        "Turn on Settings → briefly focus the AI tab while solving, then Retry.",
+        "For the most reliable image solving, switch to an API vision provider." ] };
     if (WEB_PROVIDERS.has(provider) && /(log ?in|logged in|chat box|sign|session)/.test(m))
       return { title: `Sign in to ${site}`, steps: [
         `Open the ${site} tab Solv created and log in.`,
@@ -192,7 +203,7 @@ MATH & SCIENCE — be rigorous:
   // Parse the model output into { answer, choice, choiceText, rest, confidence }.
   function parseResult(text) {
     const confidence = parseConfidence(text);
-    const body = stripConfidence(text);
+    const body = stripConfidence(text).replace(/^Model "[^"]+" was not available, so Solv retried with "[^"]+"\.\s*/i, "");
     const lines = body.split("\n");
     let answer = "", rest = "";
     const m = body.match(/^[ \t>*_-]*(?:\*\*)?\s*(?:final\s+answer|answer|hint)\s*(?:\*\*)?\s*[:\-]\s*(.*)$/im);

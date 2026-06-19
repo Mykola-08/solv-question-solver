@@ -11,11 +11,13 @@
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
   }
   *{box-sizing:border-box}
+  button,input,select,textarea{touch-action:manipulation}
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid rgba(255,255,255,.72);outline-offset:2px}
   body{margin:0;color:var(--ink);font-family:var(--sans);padding:48px 20px 80px;
     background:
       radial-gradient(800px 420px at 110% -10%,rgba(155,108,255,.16),transparent),
       radial-gradient(700px 360px at -10% 0%,rgba(108,140,255,.14),transparent),
-      var(--bg)}
+      var(--bg);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
   textarea{width:100%;background:#0f1117;border:1px solid var(--line);color:var(--ink);border-radius:9px;
     padding:9px 11px;font-size:12.5px;font-family:var(--sans);outline:none;resize:vertical;min-height:54px;line-height:1.45}
   textarea:focus{border-color:var(--g1)}
@@ -30,21 +32,32 @@
   h1{font-size:28px;margin:0 0 4px;letter-spacing:-.01em}
   h1 .d{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
   .sub{color:var(--mut);margin:0 0 28px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin-bottom:16px}
   h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin:0 0 14px}
   label{display:block;font-size:13px;color:var(--mut);margin:14px 0 6px}
   label:first-of-type{margin-top:0}
   input,select{width:100%;background:#0f1117;border:1px solid var(--line);color:var(--ink);
-    border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none}
+    border-radius:8px;padding:10px 12px;font-size:16px;font-family:inherit;outline:none}
   input:focus,select:focus{border-color:var(--accent)}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .provider-grid{display:grid;gap:14px}
+  .provider-row{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end}
+  .provider-row label{margin-top:0}
+  .test-btn{background:#1b1f2b;box-shadow:none;font-weight:650;padding:10px 14px;min-width:82px}
+  .reset-model{background:#111520;box-shadow:none;font-weight:650;padding:10px 12px;min-width:96px}
+  .test-status{grid-column:1/-1;min-height:17px;font-size:12px;color:var(--mut);margin-top:-8px}
+  .test-status.good{color:var(--good)}
+  .test-status.bad{color:#ff9aa7}
+  @media(max-width:720px){.provider-row{grid-template-columns:1fr}.test-status{margin-top:0}}
   .switch{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
   .switch span{font-size:14px}
   input[type=checkbox]{width:auto}
   .range-val{color:var(--accent);font-weight:600}
   .save-bar{position:sticky;bottom:16px;display:flex;gap:12px;align-items:center;margin-top:8px}
   button{background:var(--grad);border:none;color:#fff;font-weight:700;font-size:14px;
-    padding:11px 24px;border-radius:10px;cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(124,108,255,.4)}
+    min-height:40px;padding:11px 24px;border-radius:8px;cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(124,108,255,.4);transition:filter .15s ease,transform .1s ease}
+  @media (hover:hover) and (pointer:fine){button:hover{filter:brightness(1.06)}}
+  button:active{transform:scale(.97)}
   .saved{color:var(--good);font-size:13px;opacity:0;transition:.2s}
   .saved.show{opacity:1}
   .note{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.5}
@@ -77,23 +90,32 @@
     </select>
     <p class="note">The <b>“your login”</b> options drive your already-signed-in ChatGPT / Claude / Gemini
       tab — uses the subscription you already pay for, no API key. Keep that site open and logged in.
-      Solv opens the tab automatically the first time. (Login providers are text-only for now.)</p>
+      For screenshots, Solv tries to attach the image through the site's own upload controls; if a site blocks background upload, enable focus while solving or use an API vision provider.</p>
   </div>
 
   <div class="card">
     <h2>API keys &amp; models</h2>
-    <div class="grid2">
-      <div><label>OpenAI key</label><input id="key_openai" type="password" placeholder="sk-…" /></div>
-      <div><label>OpenAI model</label><input id="model_openai" placeholder="gpt-4o" /></div>
+    <div class="provider-grid">
+      <div class="provider-row">
+        <div><label for="key_openai">OpenAI key</label><input id="key_openai" type="password" placeholder="sk-…" autocomplete="off" spellcheck="false" /></div>
+        <div><label for="model_openai">OpenAI model</label><input id="model_openai" placeholder="gpt-5.4-mini" autocomplete="off" spellcheck="false" /></div>
+        <div style="display:flex;gap:8px"><button class="reset-model" data-reset-model="openai">Default</button><button class="test-btn" data-test="openai">Test</button></div>
+        <div class="test-status" id="test_openai"></div>
+      </div>
+      <div class="provider-row">
+        <div><label for="key_anthropic">Anthropic key</label><input id="key_anthropic" type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" /></div>
+        <div><label for="model_anthropic">Anthropic model</label><input id="model_anthropic" placeholder="claude-sonnet-4-6" autocomplete="off" spellcheck="false" /></div>
+        <div style="display:flex;gap:8px"><button class="reset-model" data-reset-model="anthropic">Default</button><button class="test-btn" data-test="anthropic">Test</button></div>
+        <div class="test-status" id="test_anthropic"></div>
+      </div>
+      <div class="provider-row">
+        <div><label for="key_gemini">Gemini key</label><input id="key_gemini" type="password" placeholder="AIza…" autocomplete="off" spellcheck="false" /></div>
+        <div><label for="model_gemini">Gemini model</label><input id="model_gemini" placeholder="gemini-2.5-flash" autocomplete="off" spellcheck="false" /></div>
+        <div style="display:flex;gap:8px"><button class="reset-model" data-reset-model="gemini">Default</button><button class="test-btn" data-test="gemini">Test</button></div>
+        <div class="test-status" id="test_gemini"></div>
+      </div>
     </div>
-    <div class="grid2">
-      <div><label>Anthropic key</label><input id="key_anthropic" type="password" placeholder="sk-ant-…" /></div>
-      <div><label>Anthropic model</label><input id="model_anthropic" placeholder="claude-sonnet-4-6" /></div>
-    </div>
-    <div class="grid2">
-      <div><label>Gemini key</label><input id="key_gemini" type="password" placeholder="AIza…" /></div>
-      <div><label>Gemini model</label><input id="model_gemini" placeholder="gemini-2.0-flash" /></div>
-    </div>
+    <p class="note">Tip: Opus access can be limited by Anthropic account or model availability. If Opus fails, press Default to use Sonnet, then Test.</p>
     <p class="note">Get keys: <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI</a> ·
       <a href="https://console.anthropic.com/settings/keys" target="_blank">Anthropic</a> ·
       <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></p>
@@ -105,6 +127,8 @@
       <div><label>Ollama URL</label><input id="ollamaUrl" placeholder="http://localhost:11434" /></div>
       <div><label>Ollama model</label><input id="model_ollama" placeholder="llama3.2" /></div>
     </div>
+    <button class="test-btn" data-test="ollama" style="margin-top:12px">Test Ollama</button>
+    <div class="test-status" id="test_ollama"></div>
     <p class="note">For images with Ollama use a vision model (e.g. <code>llava</code>, <code>llama3.2-vision</code>).
       Chrome built-in AI needs no setup beyond enabling the Prompt API in a recent Chrome.</p>
   </div>
@@ -155,7 +179,7 @@
         <li>Stay signed in at chatgpt.com / claude.ai / gemini.google.com — Solv opens the tab the first time.</li>
         <li>It now works even when that tab is in the <b>background</b> (it reads the reply as it streams, not on a timer).</li>
         <li>If a site is stubborn, turn on “briefly focus the AI tab while solving” above for guaranteed capture.</li>
-        <li>If it can’t find the chat box: log in, keep the tab open, retry. Text only for now.</li>
+        <li>For screenshots, Solv tries to attach the image in the background. If upload is blocked, enable “briefly focus the AI tab” or switch to an API vision provider.</li>
       </ol>
     </div>
     <div class="help-prov">
@@ -163,7 +187,7 @@
       <ol>
         <li>Paste the matching key above and Save.</li>
         <li>“Key not accepted” → re-copy with no spaces and confirm billing/credit is on.</li>
-        <li>Pick a vision model (gpt-4o, Claude, Gemini) for image questions.</li>
+        <li>Pick a vision-capable model from OpenAI, Claude, or Gemini for image questions.</li>
       </ol>
     </div>
     <div class="help-prov">

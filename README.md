@@ -5,7 +5,8 @@ overlay — no copy-paste, no tab switching. Built for checking your own homewor
 
 Use **whatever access you already have** — four kinds of backend:
 - **Your subscription (no key)** — drives your already-logged-in **ChatGPT / Claude / Gemini** tab.
-  Uses the plan you already pay for. Solv types the question into the web app and reads the reply back.
+  Uses the plan you already pay for. Solv types the question into the web app, best-effort attaches screenshots/images,
+  and reads the reply back.
 - **API key** — OpenAI, Anthropic (Claude), or Google Gemini (supports image questions)
 - **Local** — Ollama on `localhost` (free, offline, private)
 - **On-device** — Chrome's built-in AI (Gemini Nano), no key at all
@@ -43,6 +44,19 @@ slow requests don’t drop with “connection closed”, and partial answers are
 2. Toggle **Developer mode** (top right)
 3. **Load unpacked** → select this folder (`ai test solver`)
 4. Click the Solv icon → pick a provider → add a key in **Settings** (or choose Ollama / Chrome AI)
+5. Use **Settings → Test** next to a provider to confirm the key/model or Ollama connection before solving.
+
+## Validate and package
+
+No build step is required. Before publishing, run:
+
+```bash
+node scripts/validate-extension.mjs
+node scripts/package-extension.mjs
+```
+
+The package script writes a Chrome Web Store ZIP to `dist/`. Store listing copy, privacy text,
+review notes, and asset requirements live in `store/`; manual smoke tests live in `QA.md`.
 
 ## Use
 
@@ -58,8 +72,8 @@ hit **Verify** anytime, ask a **follow-up**, or **Copy** the answer. Drag the pa
 
 | Provider | Key needed | Images |
 |---|---|---|
-| ChatGPT / Claude / Gemini (your login) | no — uses your subscription | text only (for now) |
-| OpenAI | yes | yes (e.g. `gpt-4o`) |
+| ChatGPT / Claude / Gemini (your login) | no — uses your subscription | best-effort via web upload |
+| OpenAI | yes | yes (multimodal models) |
 | Anthropic | yes | yes (Claude) |
 | Gemini | yes | yes |
 | Ollama | no (local) | use a vision model: `llava`, `llama3.2-vision` |
@@ -73,6 +87,10 @@ fire — that’s why the old timer-polling only completed when you focused the 
 enable **Settings → “briefly focus the AI tab while solving”** for guaranteed capture. If it can’t find
 the chat box, make sure you’re logged in and retry — these read the live page DOM, so a major site
 redesign can need a selector update in `web-driver.js`.
+
+For screenshots/images with login providers, Solv tries file input, paste, and drag/drop attachment
+inside the logged-in tab. Some accounts/sites block background attachment; if that happens, enable
+brief focus while solving or use an API vision provider for the most reliable image flow.
 
 - Get keys: [OpenAI](https://platform.openai.com/api-keys) ·
   [Anthropic](https://console.anthropic.com/settings/keys) ·
@@ -100,3 +118,7 @@ through any server of ours — there isn't one.
 - `options.html|js` — keys, models, thresholds, default mode, editable mode prompts, setup/troubleshooting
 - `build_icons.py` — regenerates `icons/`
 - `plan.html` — the design/plan document
+- `scripts/validate-extension.mjs` — npm-free manifest, syntax, icon, and policy-readiness checks
+- `scripts/package-extension.mjs` — creates a clean publish ZIP in `dist/`
+- `store/` — Chrome Web Store listing, privacy, review notes, and asset checklist
+- `QA.md` — manual release smoke-test checklist

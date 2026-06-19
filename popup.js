@@ -1,11 +1,11 @@
 const SOLV = globalThis.SOLV;
 const $ = (id) => document.getElementById(id);
 const HINTS = {
-  web_chatgpt: "Uses your logged-in ChatGPT tab — your subscription, no key. Stay signed in at chatgpt.com. Text only.",
-  web_claude: "Uses your logged-in Claude tab — your subscription, no key. Stay signed in at claude.ai. Text only.",
-  web_gemini: "Uses your logged-in Gemini tab — your subscription, no key. Stay signed in at gemini.google.com. Text only.",
-  openai: "Needs an OpenAI API key (Settings). gpt-4o/4.1 read images.",
-  anthropic: "Needs an Anthropic API key. Claude models read images.",
+  web_chatgpt: "Uses your logged-in ChatGPT tab — your subscription, no key. Images are attached best-effort through ChatGPT.",
+  web_claude: "Uses your logged-in Claude tab — your subscription, no key. Images are attached best-effort through Claude.",
+  web_gemini: "Uses your logged-in Gemini tab — your subscription, no key. Images are attached best-effort through Gemini.",
+  openai: "Needs an OpenAI API key (Settings). Recent OpenAI multimodal models can read images.",
+  anthropic: "Needs an Anthropic API key. Sonnet is the safest default; Opus may require account access.",
   gemini: "Needs a Google AI Studio key. Gemini reads images.",
   ollama: "Local — no key. Run `ollama serve`. Use a vision model (llava) for images.",
   builtin: "On-device Gemini Nano. No key. Needs a recent Chrome with the Prompt API."
@@ -53,7 +53,15 @@ $("save").addEventListener("click", async () => {
 $("opts").addEventListener("click", () => chrome.runtime.openOptionsPage());
 $("side").addEventListener("click", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  try { await chrome.sidePanel.open({ tabId: tab.id }); window.close(); } catch (e) {}
+  try {
+    if (!chrome.sidePanel?.open) throw new Error("Side panel unavailable");
+    if (tab?.id != null) await chrome.sidePanel.open({ tabId: tab.id });
+    else {
+      const win = await chrome.windows.getCurrent();
+      await chrome.sidePanel.open({ windowId: win.id });
+    }
+    window.close();
+  } catch (e) {}
 });
 
 load();

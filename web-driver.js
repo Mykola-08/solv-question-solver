@@ -8,18 +8,21 @@
   const CONFIG = {
     web_chatgpt: {
       composer: ["#prompt-textarea", 'div[contenteditable="true"]#prompt-textarea', 'textarea[data-id]', 'div.ProseMirror[contenteditable="true"]'],
+      file: ['input[type="file"][accept*="image"]', 'input[type="file"]'],
       send: ['button[data-testid="send-button"]', 'button[aria-label*="Send"]'],
       stop: ['button[data-testid="stop-button"]', 'button[aria-label*="Stop"]'],
       message: ['div[data-message-author-role="assistant"]', "div.markdown.prose"]
     },
     web_claude: {
       composer: ['div[contenteditable="true"].ProseMirror', 'div[contenteditable="true"]'],
+      file: ['input[type="file"][accept*="image"]', 'input[type="file"]'],
       send: ['button[aria-label="Send message"]', 'button[aria-label="Send Message"]', 'button[aria-label*="Send"]'],
       stop: ['button[aria-label*="Stop"]'],
       message: ['div.font-claude-message', '[data-testid="assistant-message"]', "div.font-claude-response"]
     },
     web_gemini: {
       composer: ["div.ql-editor[contenteditable]", 'div[contenteditable="true"][role="textbox"]', "rich-textarea div[contenteditable]"],
+      file: ['input[type="file"][accept*="image"]', 'input[type="file"]'],
       send: ['button[aria-label*="Send"]', "button.send-button", 'button[mattooltip*="Send"]'],
       stop: ['button[aria-label*="Stop"]'],
       message: ["message-content", ".model-response-text", "div.markdown"]
@@ -53,6 +56,65 @@
       }
       el.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true }));
     }
+  }
+
+  async function dataUrlToFile(dataUrl) {
+    if (!/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(dataUrl || "")) {
+      throw new Error("The image data was invalid. Capture or attach it again.");
+    }
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+    return new File([blob], `solv-question.${ext}`, { type: blob.type || "image/jpeg" });
+  }
+
+  function dispatchFileInput(input, file) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function dispatchPaste(target, file) {
+    for (const el of [target, document]) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      el.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: dt }));
+    }
+  }
+
+  function dispatchDrop(target, file) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const opts = { bubbles: true, cancelable: true, dataTransfer: dt };
+    target.dispatchEvent(new DragEvent("dragenter", opts));
+    target.dispatchEvent(new DragEvent("dragover", opts));
+    target.dispatchEvent(new DragEvent("drop", opts));
+  }
+
+  async function attachImage(cfg, composer, image) {
+    if (!image) return true;
+    const file = await dataUrlToFile(image);
+    const inputs = pickAll(cfg.file || ['input[type="file"]']).filter((el) => !el.disabled);
+    for (const input of inputs) {
+      try {
+        dispatchFileInput(input, file);
+        await sleep(900);
+        return true;
+      } catch {}
+    }
+    try {
+      dispatchPaste(composer, file);
+      await sleep(900);
+      return true;
+    } catch {}
+    try {
+      dispatchDrop(composer, file);
+      await sleep(900);
+      return true;
+    } catch {}
+    return false;
   }
 
   const composerText = (el) => (el.value !== undefined ? el.value : el.innerText) || "";
@@ -133,7 +195,7 @@
     });
   }
 
-  async function run({ requestId, provider, prompt }) {
+  async function run({ requestId, provider, prompt, image }) {
     const cfg = CONFIG[provider];
     const send = (type, extra) => chrome.runtime.sendMessage({ type, requestId, ...extra });
     try {
@@ -144,6 +206,13 @@
       }
       const baseline = pickAll(cfg.message).length;
       setComposerText(composer, prompt);
+      if (image) {
+        const attached = await attachImage(cfg, composer, image);
+        if (!attached) {
+          send("solv-web-error", { error: "Couldn't attach the image to the logged-in AI tab. Turn on Settings → briefly focus the AI tab while solving, or use an API vision provider." });
+          return;
+        }
+      }
       const sent = await submit(cfg, composer);
       if (!sent) {
         send("solv-web-error", { error: "Typed the question but couldn't trigger send. Click the send button in the tab once, then retry — the site may have changed its send control." });

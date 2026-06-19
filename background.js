@@ -9,6 +9,7 @@ const WEB_SITES = {
   web_gemini: { url: "https://gemini.google.com/app", match: ["https://gemini.google.com/*"], label: "Gemini" }
 };
 const isWebProvider = (p) => p in WEB_SITES;
+const sendTabMessage = (tabId, payload) => chrome.tabs.sendMessage(tabId, payload).catch(() => {});
 
 async function ensureSiteTab(site) {
   const tabs = await chrome.tabs.query({ url: site.match });
@@ -24,7 +25,7 @@ async function ensureSiteTab(site) {
   return tab;
 }
 
-async function webSolve({ provider, messages, onToken, signal, focusTab }) {
+async function webSolve({ provider, messages, image, onToken, signal, focusTab }) {
   const site = WEB_SITES[provider];
   // Remember where the user was, so we can restore focus afterwards.
   let prevTabId = null, prevWindowId = null;
@@ -57,7 +58,7 @@ async function webSolve({ provider, messages, onToken, signal, focusTab }) {
     };
     chrome.runtime.onMessage.addListener(relay);
     signal?.addEventListener("abort", () => finish(reject, new Error("aborted")));
-    chrome.tabs.sendMessage(tab.id, { type: "solv-web-run", requestId, provider, prompt })
+    chrome.tabs.sendMessage(tab.id, { type: "solv-web-run", requestId, provider, prompt, image })
       .catch((e) => finish(reject, new Error("Couldn't reach the tab: " + e.message)));
   });
 }
@@ -98,6 +99,50 @@ async function getSettings() {
     overlay: { ...DEFAULTS.overlay, ...(stored.settings?.overlay || {}) } };
 }
 
+async function testProviderConnection(provider, overrides = {}) {
+  const current = await getSettings();
+  const settings = { ...current, ...overrides };
+  settings.keys = { ...current.keys, ...(overrides.keys || {}) };
+  settings.models = { ...current.models, ...(overrides.models || {}) };
+  const key = settings.keys?.[provider];
+  if (["openai", "anthropic", "gemini"].includes(provider) && !key) {
+    throw new Error(`Add a ${provider} API key first.`);
+  }
+  if (provider === "openai") {
+    const res = await fetch("https://api.openai.com/v1/models", { headers: { Authorization: `Bearer ${key}` } });
+    if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 180) || res.statusText}`);
+    return "OpenAI key accepted.";
+  }
+  if (provider === "anthropic") {
+    const model = settings.models?.anthropic || DEFAULT_MODELS.anthropic;
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({ model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] })
+    });
+    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 180) || res.statusText}`);
+    return "Anthropic key and model accepted.";
+  }
+  if (provider === "gemini") {
+    const model = settings.models?.gemini || DEFAULT_MODELS.gemini;
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}?key=${key}`);
+    if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 180) || res.statusText}`);
+    return "Gemini key and model accepted.";
+  }
+  if (provider === "ollama") {
+    const base = (settings.ollamaUrl || "http://localhost:11434").replace(/\/$/, "");
+    const res = await fetch(`${base}/api/tags`);
+    if (!res.ok) throw new Error(`Ollama ${res.status}: ${(await res.text()).slice(0, 180) || res.statusText}`);
+    return "Ollama is reachable.";
+  }
+  throw new Error("This provider does not need a connection test.");
+}
+
 // ---- keepalive: stop MV3 from killing the worker mid-request ----
 let activeJobs = 0;
 let keepaliveTimer = null;
@@ -126,7 +171,7 @@ chrome.runtime.onConnect.addListener((port) => {
       const { provider, model, messages, image } = msg.payload;
       const onToken = (t) => { try { port.postMessage({ type: "token", text: t }); } catch {} };
       if (isWebProvider(provider)) {
-        await webSolve({ provider, messages, onToken, signal: controller.signal, focusTab: settings.webFocusTab });
+        await webSolve({ provider, messages, image, onToken, signal: controller.signal, focusTab: settings.webFocusTab });
       } else {
         await streamChat({ provider, settings, model, messages, image, signal: controller.signal, onToken });
       }
@@ -142,6 +187,10 @@ chrome.runtime.onConnect.addListener((port) => {
 // ---- one-shot messages (screenshot capture, settings fetch) ----
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "capture") {
+    if (!sender.tab?.windowId) {
+      sendResponse({ ok: false, error: "No active tab available for capture." });
+      return true;
+    }
     chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: "png" })
       .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
       .catch((e) => sendResponse({ ok: false, error: String(e.message || e) }));
@@ -151,45 +200,63 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     getSettings().then((s) => sendResponse(s));
     return true;
   }
+  if (msg.type === "testProvider") {
+    testProviderConnection(msg.provider, msg.settings || {})
+      .then((message) => sendResponse({ ok: true, message }))
+      .catch((e) => sendResponse({ ok: false, error: String(e.message || e) }));
+    return true;
+  }
   if (msg.type === "openOptions") {
     chrome.runtime.openOptionsPage();
   }
   if (msg.type === "openSidePanel") {
     const tabId = sender.tab?.id;
-    try {
-      if (tabId != null) chrome.sidePanel.open({ tabId });
-      else chrome.windows.getCurrent().then((w) => chrome.sidePanel.open({ windowId: w.id }));
-    } catch (e) { /* sidePanel.open needs a user gesture; ignore otherwise */ }
+    (async () => {
+      try {
+        if (!chrome.sidePanel?.open) throw new Error("Side panel is unavailable in this Chrome version.");
+        if (tabId != null) await chrome.sidePanel.open({ tabId });
+        else {
+          const w = await chrome.windows.getCurrent();
+          await chrome.sidePanel.open({ windowId: w.id });
+        }
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e.message || e) });
+      }
+    })();
+    return true;
   }
 });
 
 // allow the side panel to open from the toolbar icon too (optional convenience)
-chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false }).catch(() => {});
+chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false })?.catch(() => {});
 
 // ---- commands (keyboard shortcuts) ----
 chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
-  if (command === "solve-selection") chrome.tabs.sendMessage(tab.id, { type: "trigger-selection" });
-  if (command === "solve-region") chrome.tabs.sendMessage(tab.id, { type: "trigger-region" });
+  if (command === "solve-selection") sendTabMessage(tab.id, { type: "trigger-selection" });
+  if (command === "solve-region") sendTabMessage(tab.id, { type: "trigger-region" });
 });
 
 // ---- context menu ----
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "solv-selection",
-    title: "Solve “%s” with Solv",
-    contexts: ["selection"]
-  });
-  chrome.contextMenus.create({
-    id: "solv-region",
-    title: "Solv: screenshot a region",
-    contexts: ["page", "image"]
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "solv-selection",
+      title: "Solve \"%s\" with Solv",
+      contexts: ["selection"]
+    });
+    chrome.contextMenus.create({
+      id: "solv-region",
+      title: "Solv: screenshot a region",
+      contexts: ["page", "image"]
+    });
   });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab?.id) return;
-  if (info.menuItemId === "solv-selection") chrome.tabs.sendMessage(tab.id, { type: "trigger-selection" });
-  if (info.menuItemId === "solv-region") chrome.tabs.sendMessage(tab.id, { type: "trigger-region" });
+  if (info.menuItemId === "solv-selection") sendTabMessage(tab.id, { type: "trigger-selection" });
+  if (info.menuItemId === "solv-region") sendTabMessage(tab.id, { type: "trigger-region" });
 });

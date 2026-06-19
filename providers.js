@@ -4,9 +4,9 @@
 // image: optional data URL (e.g. "data:image/png;base64,....") for the last user turn.
 
 export const DEFAULT_MODELS = {
-  openai: "gpt-4o",
+  openai: "gpt-5.4-mini",
   anthropic: "claude-sonnet-4-6",
-  gemini: "gemini-2.0-flash",
+  gemini: "gemini-2.5-flash",
   ollama: "llama3.2",
   builtin: "gemini-nano"
 };
@@ -14,7 +14,9 @@ export const DEFAULT_MODELS = {
 const dataUrlParts = (dataUrl) => {
   // returns { mime, base64 }
   const m = /^data:([^;]+);base64,(.*)$/.exec(dataUrl || "");
-  if (!m) return null;
+  if (!m) throw new Error("Invalid image data. Capture or attach the image again.");
+  if (!/^image\/(png|jpe?g|webp|gif)$/i.test(m[1])) throw new Error(`Unsupported image type: ${m[1]}`);
+  if (!m[2] || m[2].length > 12_000_000) throw new Error("Image is too large. Capture a smaller region or use a smaller file.");
   return { mime: m[1], base64: m[2] };
 };
 
@@ -44,9 +46,40 @@ async function ensureOk(response, provider) {
 }
 
 // ---------- OpenAI ----------
-async function openai({ settings, model, messages, image, onToken, signal }) {
+async function openaiResponses({ settings, model, messages, image, onToken, signal }) {
+  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
+  const input = messages.filter((m) => m.role !== "system").map((m, idx, arr) => {
+    const content = [{ type: m.role === "assistant" ? "output_text" : "input_text", text: m.content }];
+    if (image && idx === arr.length - 1 && m.role !== "assistant") {
+      dataUrlParts(image);
+      content.push({ type: "input_image", image_url: image });
+    }
+    return { role: m.role, content };
+  });
+  const res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    signal,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.keys.openai}` },
+    body: JSON.stringify({ model, instructions: system || undefined, input, stream: true })
+  });
+  await ensureOk(res, "OpenAI");
+  for await (const line of sseLines(res)) {
+    if (!line.startsWith("data:")) continue;
+    const data = line.slice(5).trim();
+    if (data === "[DONE]") break;
+    let json;
+    try {
+      json = JSON.parse(data);
+    } catch { continue; }
+    if (json.type === "response.output_text.delta" && json.delta) onToken(json.delta);
+    if (json.type === "response.error" && json.error?.message) throw new Error(json.error.message);
+  }
+}
+
+async function openaiChatCompletions({ settings, model, messages, image, onToken, signal }) {
   const msgs = messages.map((m) => ({ role: m.role, content: m.content }));
   if (image) {
+    dataUrlParts(image);
     const last = msgs[msgs.length - 1];
     last.content = [
       { type: "text", text: last.content || "Solve the question in this image." },
@@ -70,6 +103,11 @@ async function openai({ settings, model, messages, image, onToken, signal }) {
       if (delta) onToken(delta);
     } catch {}
   }
+}
+
+async function openai(args) {
+  if (/^(gpt-5|o[0-9])/.test(args.model)) return openaiResponses(args);
+  return openaiChatCompletions(args);
 }
 
 // ---------- Anthropic ----------
@@ -165,10 +203,21 @@ async function ollama({ settings, model, messages, image, onToken, signal }) {
 }
 
 const ROUTES = { openai, anthropic, gemini, ollama };
+const isModelError = (e) => /(model).*(not found|does not exist|404)|unknown model|no such model|not available for your account/i.test(String(e?.message || e));
 
 export async function streamChat({ provider, settings, model, messages, image, onToken, signal }) {
   const fn = ROUTES[provider];
   if (!fn) throw new Error(`Unknown provider: ${provider}`);
   const chosenModel = model || settings.models?.[provider] || DEFAULT_MODELS[provider];
-  await fn({ settings, model: chosenModel, messages, image, onToken, signal });
+  try {
+    await fn({ settings, model: chosenModel, messages, image, onToken, signal });
+  } catch (e) {
+    const fallback = DEFAULT_MODELS[provider];
+    if (!signal?.aborted && fallback && fallback !== chosenModel && isModelError(e)) {
+      onToken(`Model "${chosenModel}" was not available, so Solv retried with "${fallback}".\n\n`);
+      await fn({ settings, model: fallback, messages, image, onToken, signal });
+      return;
+    }
+    throw e;
+  }
 }

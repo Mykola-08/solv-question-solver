@@ -9,6 +9,10 @@
     window.postMessage({ source: "solv-builtin", id, type, ...extra }, "*");
 
   async function dataUrlToBitmap(dataUrl) {
+    if (!/^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(dataUrl || "")) {
+      throw new Error("Invalid image data. Capture or attach the image again.");
+    }
+    if (dataUrl.length > 12_000_000) throw new Error("Image is too large. Capture a smaller region or use a smaller file.");
     const blob = await (await fetch(dataUrl)).blob();
     return await createImageBitmap(blob);
   }

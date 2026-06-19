@@ -12,13 +12,13 @@
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#1a1f2e,transparent),var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;padding:48px 20px 96px}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#1a1f2e,transparent),var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;padding:48px 20px 96px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
   .wrap{max-width:920px;margin:0 auto}
   h1{font-size:38px;margin:0 0 6px;letter-spacing:-.02em}
   h1 .dot{color:var(--accent)}
   .sub{color:var(--mut);margin:0 0 36px;font-size:16px}
   h2{font-size:13px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent);margin:40px 0 14px}
-  .card{background:linear-gradient(180deg,var(--panel),#10121a);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin:0 0 14px}
+  .card{background:linear-gradient(180deg,var(--panel),#10121a);border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin:0 0 14px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:680px){.grid{grid-template-columns:1fr}}
   .card h3{margin:0 0 8px;font-size:16px}

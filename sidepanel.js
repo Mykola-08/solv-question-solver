@@ -7,6 +7,8 @@ let settings = null;
 let mode = "short";
 let attached = null; // dataURL
 const history = []; // {role, content} for context
+const MAX_STORED_IMAGE = 4_000_000;
+const isImageDataUrl = (url) => /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(url || "") && url.length <= MAX_STORED_IMAGE;
 
 async function load() {
   settings = await new Promise((res) => chrome.runtime.sendMessage({ type: "getSettings" }, res));
@@ -26,13 +28,15 @@ function restoreHandoff(h) {
   if (h.mode) { mode = h.mode; buildModes(); }
   if (h.question || h.image || h.answer) {
     $("empty")?.remove();
-    addUser(h.question || "Image question", h.image || null);
+    addUser(h.question || "Image question", isImageDataUrl(h.image) ? h.image : null);
     if (h.answer) { const card = addAnswerCard(); finalizeCard(card, h.answer, true); }
     for (const m of (h.messages || [])) if (m.role !== "system") history.push(m);
     // brief banner so it's clear the conversation moved here
     const note = document.createElement("div");
     note.className = "msg"; note.innerHTML = `<div class="status" style="text-align:center">↳ continued from the page — ask a follow-up below</div>`;
     $("convo").appendChild(note); scroll();
+    chrome.storage.local.remove("solvHandoff");
+    if (h.imageOmitted) addError({ title: "Image was too large to hand off", steps: ["Ask a text follow-up here, or capture a smaller region on the page."] });
   }
 }
 function checkHandoff() {
@@ -92,9 +96,37 @@ $("input").addEventListener("paste", (e) => {
   if (item) { const f = item.getAsFile(); if (f) { e.preventDefault(); fileToDataUrl(f).then(setAttached); } }
 });
 function fileToDataUrl(file) { return new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); }); }
-function setAttached(url) {
-  attached = url;
-  $("attachWrap").innerHTML = `<span class="attach-chip"><img src="${url}"/> image attached <button id="rm">✕</button></span>`;
+function normalizeImageDataUrl(url) {
+  return new Promise((resolve, reject) => {
+    if (!/^data:image\//i.test(url || "")) { reject(new Error("Unsupported image file.")); return; }
+    const img = new Image();
+    img.onload = () => {
+      const maxSide = 1800;
+      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+      canvas.height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
+    };
+    img.onerror = () => reject(new Error("Could not read the image."));
+    img.src = url;
+  });
+}
+async function setAttached(url) {
+  let normalized;
+  try {
+    normalized = await normalizeImageDataUrl(url);
+  } catch (e) {
+    addError({ title: "Image is too large or unsupported", steps: ["Use PNG, JPEG, WebP, or GIF.", "Capture a smaller region or attach a smaller file."] });
+    return;
+  }
+  if (!isImageDataUrl(normalized)) {
+    addError({ title: "Image is too large or unsupported", steps: ["Capture a smaller region or attach a smaller file.", "Try a simpler crop around just the question."] });
+    return;
+  }
+  attached = normalized;
+  $("attachWrap").innerHTML = `<span class="attach-chip"><img src="${normalized}"/> image attached <button id="rm">✕</button></span>`;
   $("rm").onclick = () => { attached = null; $("attachWrap").innerHTML = ""; };
 }
 
@@ -120,12 +152,13 @@ function builtinLocal(messages, image, onToken) {
     } catch (e) { reject(e); }
   });
 }
-function runSolve({ messages, image, onToken }) {
+function runSolve({ messages, image, onToken, signal }) {
   if (settings.provider === "builtin") return builtinLocal(messages, image, onToken);
   return new Promise((resolve, reject) => {
     const port = chrome.runtime.connect({ name: "solv-stream" });
     let settled = false, gotToken = false;
     const fin = (fn, a) => { if (settled) return; settled = true; try { port.disconnect(); } catch {} fn(a); };
+    signal?.addEventListener("abort", () => fin(reject, new Error("aborted")), { once: true });
     port.onMessage.addListener((m) => {
       if (m.type === "token") { gotToken = true; onToken(m.text); }
       else if (m.type === "ping") { /* keepalive */ }
@@ -142,10 +175,6 @@ let busy = false;
 async function send() {
   const text = input.value.trim();
   if ((!text && !attached) || busy) return;
-  if (attached && SOLV.WEB_PROVIDERS.has(settings.provider)) {
-    addError({ title: "Login providers can't read images", steps: ["Switch to OpenAI / Claude / Gemini (API) or a local vision model.", "Then resend with the image attached."] });
-    return;
-  }
   if (!hasCreds()) { addError({ title: `Add a key for ${SOLV.PROVIDER_LABELS[settings.provider]}`, steps: ["Open Settings (⚙) and paste your API key.", "Or switch to a login / Ollama / Chrome AI provider."], action: "options" }); return; }
 
   $("empty")?.remove();
@@ -159,10 +188,11 @@ async function send() {
   const card = addAnswerCard();
   busy = true; $("send").disabled = true;
   let acc = "";
+  const controller = new AbortController();
   try {
-    await runSolve({ messages, image, onToken: (t) => { acc += t; card.live.innerHTML = R.md(R.stripConfidence(acc)); scroll(); } });
+    await runSolve({ messages, image, signal: controller.signal, onToken: (t) => { acc += t; card.live.innerHTML = R.md(R.stripConfidence(acc)); scroll(); } });
     history.push({ role: "user", content: qtext }, { role: "assistant", content: acc });
-    finalizeCard(card, acc);
+    finalizeCard(card, acc, false, { image, question: qtext });
   } catch (e) {
     card.wrap.remove();
     addError(SOLV.friendlyError(String(e.message || e), settings.provider));
@@ -182,13 +212,13 @@ function addAnswerCard() {
     <div class="final" hidden></div>
     <div class="live"></div>
     <div class="verify"></div>
-    <div class="status"><span class="dots"><i></i><i></i><i></i></span> ${SOLV.WEB_PROVIDERS.has(settings.provider) ? "asking your logged-in session…" : "thinking…"}</div>
+    <div class="status"><span class="dots"><i></i><i></i><i></i></span> ${SOLV.WEB_PROVIDERS.has(settings.provider) ? "using your logged-in session…" : "thinking…"}</div>
   </div>`;
   $("convo").appendChild(wrap);
   return { wrap, final: wrap.querySelector(".final"), live: wrap.querySelector(".live"), status: wrap.querySelector(".status"), verify: wrap.querySelector(".verify") };
 }
 const confBadge = (c) => c == null ? "" : `<span class="cbadge" data-tone="${R.confTone(c)}">${c}%</span>`;
-function finalizeCard(card, acc, skipVerify) {
+function finalizeCard(card, acc, skipVerify, context = {}) {
   card.status.textContent = "";
   const r = R.parseResult(acc);
   const hint = mode === "hint";
@@ -200,18 +230,18 @@ function finalizeCard(card, acc, skipVerify) {
   card.final.innerHTML = `<div class="fhead"><span class="lab">${label}</span>${confBadge(r.confidence)}</div>${core}
     <div class="meta">${SOLV.PROVIDER_LABELS[settings.provider]} · ${SOLV.WEB_PROVIDERS.has(settings.provider) ? "your model" : (settings.models?.[settings.provider] || SOLV.DEFAULT_MODELS[settings.provider])}</div>`;
   card.live.innerHTML = r.rest ? `<details class="reason"${r.rest.length < 260 ? " open" : ""}><summary>Show reasoning</summary><div class="reason-body">${R.md(r.rest)}</div></details>` : "";
-  if (!skipVerify && r.confidence != null && settings.autoVerify && r.confidence < (settings.confidenceThreshold ?? 70)) verify(card, acc);
+  if (!skipVerify && r.confidence != null && settings.autoVerify && r.confidence < (settings.confidenceThreshold ?? 70)) verify(card, acc, context);
 }
-async function verify(card, original) {
+async function verify(card, original, context = {}) {
   const v = card.verify;
   v.innerHTML = `<span class="dots"><i></i><i></i><i></i></span> verifying independently…`;
   let second = "";
   try {
     await runSolve({
       messages: [{ role: "system", content: SOLV.buildSystem("steps", settings.modePrompts) },
-        { role: "user", content: history[history.length - 2]?.content || "" },
+        { role: "user", content: context.question || history[history.length - 2]?.content || "" },
         { role: "user", content: "Solve this independently from scratch; double-check the arithmetic." }],
-      image: null, onToken: (t) => { second += t; }
+      image: context.image || null, onToken: (t) => { second += t; }
     });
     const norm = (s) => R.stripConfidence(s).split("\n").map((l) => l.trim()).filter(Boolean)[0]?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
     const agree = norm(original) && norm(original) === norm(second);

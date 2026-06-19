@@ -3,6 +3,7 @@
   "name": "Solv — Inline Question Solver",
   "version": "1.0.0",
   "description": "Select text or screenshot a question and get a direct AI answer inline. Works with your own API key, local Ollama, or Chrome's built-in AI.",
+  "minimum_chrome_version": "114",
   "permissions": ["storage", "activeTab", "scripting", "contextMenus", "tabs", "sidePanel"],
   "host_permissions": [
     "https://api.openai.com/*",
