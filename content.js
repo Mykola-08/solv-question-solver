@@ -5,6 +5,7 @@
   const SOLV = globalThis.SOLV;
   const R = SOLV.render;
   const escapeHtml = R.escapeHtml;
+  const escapeAttr = (s = "") => escapeHtml(String(s)).replace(/"/g, "&quot;");
   const renderMd = R.md;
   const parseConfidence = R.parseConfidence;
   const stripConfidence = R.stripConfidence;
@@ -74,7 +75,7 @@
     removePill();
     pill = document.createElement("div");
     pill.className = "solv-pill";
-    pill.innerHTML = `<span class="solv-pill-glyph">✦</span> Solve`;
+    pill.innerHTML = `<span class="solv-pill-glyph">S</span> Solve`;
     pill.style.top = `${window.scrollY + rect.bottom + 8}px`;
     pill.style.left = `${window.scrollX + rect.left}px`;
     pill.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); removePill(); solveText(text); });
@@ -108,8 +109,8 @@
     return SOLV.PROVIDER_GROUPS.map((g) => {
       const items = g.items.filter((p) => !allow || allow.includes(p) || p === current);
       if (!items.length) return "";
-      return `<optgroup label="${g.label}">` +
-        items.map((p) => `<option value="${p}"${p === current ? " selected" : ""}>${SOLV.PROVIDER_LABELS[p]}</option>`).join("") +
+      return `<optgroup label="${escapeAttr(g.label)}">` +
+        items.map((p) => `<option value="${escapeAttr(p)}"${p === current ? " selected" : ""}>${escapeHtml(SOLV.PROVIDER_LABELS[p])}</option>`).join("") +
         `</optgroup>`;
     }).join("");
   }
@@ -120,6 +121,14 @@
     set(".solv-modes", o.showModes !== false);
     set(".solv-foot", o.showFollowup !== false);
     if (o.compact !== false) panel.classList.add("solv-compact"); else panel.classList.remove("solv-compact");
+    syncControlsAccessibility();
+  }
+  function syncControlsAccessibility() {
+    const controls = panel?.querySelector(".solv-controls");
+    if (!controls) return;
+    const hidden = panel.classList.contains("solv-compact") && !panel.classList.contains("solv-controls-open");
+    controls.inert = hidden;
+    controls.setAttribute("aria-hidden", hidden ? "true" : "false");
   }
   function refreshModelSelect() {
     const sel = panel.querySelector(".solv-model");
@@ -131,8 +140,8 @@
     sel.disabled = false;
     const cur = modelFor(p);
     const ids = list.map((m) => m.id);
-    let html = list.map((m) => `<option value="${m.id}"${m.id === cur ? " selected" : ""}>${m.label}</option>`).join("");
-    if (!ids.includes(cur)) html = `<option value="${cur}" selected>${cur} (custom)</option>` + html;
+    let html = list.map((m) => `<option value="${escapeAttr(m.id)}"${m.id === cur ? " selected" : ""}>${escapeHtml(m.label)}</option>`).join("");
+    if (!ids.includes(cur)) html = `<option value="${escapeAttr(cur)}" selected>${escapeHtml(cur)} (custom)</option>` + html;
     sel.innerHTML = html;
   }
   function makePanel() {
@@ -141,7 +150,7 @@
     panel.className = "solv-root";
     panel.innerHTML = `
       <div class="solv-head">
-        <div class="solv-brand"><span class="solv-logo">✦</span> Solv</div>
+        <div class="solv-brand"><span class="solv-logo">S</span> Solv</div>
         <div class="solv-head-actions">
           <button class="solv-icon solv-tune" title="Provider / model / mode" aria-label="Provider, model, and mode">⚙</button>
           <button class="solv-icon solv-side" title="Continue in side panel chat" aria-label="Continue in side panel chat">⇥</button>
@@ -154,7 +163,7 @@
           <select class="solv-select solv-model" title="Model"></select>
         </div>
         <div class="solv-modes" role="tablist">
-          ${visibleModes().map((m) => `<button class="solv-mode${m.id === state.mode ? " is-on" : ""}" data-mode="${m.id}" title="${m.desc}">${m.label}</button>`).join("")}
+          ${visibleModes().map((m) => `<button class="solv-mode${m.id === state.mode ? " is-on" : ""}" data-mode="${escapeAttr(m.id)}" title="${escapeAttr(m.desc)}">${escapeHtml(m.label)}</button>`).join("")}
         </div>
       </div>
       <div class="solv-body">
@@ -184,7 +193,7 @@
     document.addEventListener("keydown", onEsc);
     panel._close = closePanel;
     panel.querySelector(".solv-close").onclick = closePanel;
-    panel.querySelector(".solv-tune").onclick = () => panel.classList.toggle("solv-controls-open");
+    panel.querySelector(".solv-tune").onclick = () => { panel.classList.toggle("solv-controls-open"); syncControlsAccessibility(); };
     panel.querySelector(".solv-side").onclick = () => delegateToSide();
     panel.querySelector(".solv-copy").onclick = () => { navigator.clipboard.writeText(stripConfidence(state.answer || "")); flash(panel.querySelector(".solv-copy"), "✓"); };
     panel.querySelector(".solv-reverify").onclick = () => verify(true);
@@ -305,9 +314,9 @@
       : `<div class="solv-final-text">${renderMd(r.answer)}</div>`;
     const badge = o.showConf !== false ? confBadge(r.confidence) : "";
     const meta = o.showMeta === true
-      ? `<div class="solv-meta">${SOLV.PROVIDER_LABELS[settings.provider]} · ${SOLV.WEB_PROVIDERS.has(settings.provider) ? "your model" : modelFor(settings.provider)}</div>` : "";
+      ? `<div class="solv-meta">${escapeHtml(SOLV.PROVIDER_LABELS[settings.provider])} · ${escapeHtml(SOLV.WEB_PROVIDERS.has(settings.provider) ? "your model" : modelFor(settings.provider))}</div>` : "";
     finalEl.hidden = false;
-    finalEl.innerHTML = `<div class="solv-final-head"><span class="solv-final-label">${label}</span>${badge}</div>${core}${meta}`;
+    finalEl.innerHTML = `<div class="solv-final-head"><span class="solv-final-label">${escapeHtml(label)}</span>${badge}</div>${core}${meta}`;
     ansEl.innerHTML = (o.showReasoning !== false && r.rest)
       ? `<details class="solv-reason"${r.rest.length < 260 ? " open" : ""}><summary>Show reasoning</summary><div class="solv-reason-body">${renderMd(r.rest)}</div></details>`
       : "";
@@ -362,8 +371,17 @@
     };
     // fire-and-forget storage write + open in the same user gesture (keeps the open() gesture valid)
     chrome.storage.local.set({ solvHandoff: handoff });
-    chrome.runtime.sendMessage({ type: "openSidePanel" });
-    panel?._close?.();
+    chrome.runtime.sendMessage({ type: "openSidePanel" }, (resp) => {
+      if (resp?.ok) panel?._close?.();
+      else showError(resp?.error || "Side panel unavailable", {
+        title: "Side panel could not open",
+        steps: [
+          "Open the Solv popup and choose Side panel.",
+          "Make sure this Chrome profile supports side panels.",
+          "You can keep using the floating overlay here."
+        ]
+      });
+    });
   }
 
   // ---------- error UI ----------
@@ -379,7 +397,7 @@
         <div class="solv-error-actions">
           <button class="solv-btn solv-retry">Retry</button>
           ${help.action === "options" ? `<button class="solv-btn solv-open-opts">Open settings</button>` : ""}
-          <span class="solv-error-raw" title="${escapeHtml(raw)}">details</span>
+          <span class="solv-error-raw" title="${escapeAttr(raw)}">details</span>
         </div>
       </div>`;
     statusEl.querySelector(".solv-retry").onclick = () => stream();
@@ -410,6 +428,20 @@
       if (w < 8 || h < 8) return;
       const image = await captureRegion(x, y, w, h);
       if (image) startSolve({ image });
+      else {
+        settings = settings || await getSettings();
+        makePanel();
+        panel.classList.remove("solv-collapsed");
+        panel.querySelector(".solv-question").textContent = "Screenshot capture";
+        showError("capture failed", {
+          title: "Couldn't capture this page",
+          steps: [
+            "Chrome blocks screenshots on some internal or protected pages.",
+            "Try the same question on a normal web page, or paste/attach an image in the side panel.",
+            "If the page just changed, reload it and try the region capture again."
+          ]
+        });
+      }
     });
   }
   function captureRegion(x, y, w, h) {

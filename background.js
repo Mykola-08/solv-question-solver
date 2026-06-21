@@ -49,7 +49,15 @@ async function webSolve({ provider, messages, image, onToken, signal, focusTab }
 
   return new Promise((resolve, reject) => {
     let done = false;
-    const finish = (fn, arg) => { if (done) return; done = true; chrome.runtime.onMessage.removeListener(relay); restoreFocus(); fn(arg); };
+    const onAbort = () => finish(reject, new Error("aborted"));
+    const finish = (fn, arg) => {
+      if (done) return;
+      done = true;
+      chrome.runtime.onMessage.removeListener(relay);
+      signal?.removeEventListener?.("abort", onAbort);
+      restoreFocus();
+      fn(arg);
+    };
     const relay = (m) => {
       if (m.requestId !== requestId) return;
       if (m.type === "solv-web-token") onToken(m.delta);
@@ -57,7 +65,7 @@ async function webSolve({ provider, messages, image, onToken, signal, focusTab }
       else if (m.type === "solv-web-error") finish(reject, new Error(m.error));
     };
     chrome.runtime.onMessage.addListener(relay);
-    signal?.addEventListener("abort", () => finish(reject, new Error("aborted")));
+    signal?.addEventListener("abort", onAbort, { once: true });
     chrome.tabs.sendMessage(tab.id, { type: "solv-web-run", requestId, provider, prompt, image })
       .catch((e) => finish(reject, new Error("Couldn't reach the tab: " + e.message)));
   });

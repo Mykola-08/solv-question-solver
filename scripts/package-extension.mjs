@@ -15,6 +15,7 @@ const files = [
   "background.js",
   "providers.js",
   "config.js",
+  "ui.css",
   "content.js",
   "content.css",
   "builtin-ai.js",

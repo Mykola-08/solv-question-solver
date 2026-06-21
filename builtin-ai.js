@@ -8,13 +8,14 @@
   const reply = (id, type, extra) =>
     window.postMessage({ source: "solv-builtin", id, type, ...extra }, "*");
 
-  async function dataUrlToBitmap(dataUrl) {
+  async function dataUrlToImageValue(dataUrl) {
     if (!/^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(dataUrl || "")) {
       throw new Error("Invalid image data. Capture or attach the image again.");
     }
     if (dataUrl.length > 12_000_000) throw new Error("Image is too large. Capture a smaller region or use a smaller file.");
     const blob = await (await fetch(dataUrl)).blob();
-    return await createImageBitmap(blob);
+    if (typeof createImageBitmap === "function") return await createImageBitmap(blob);
+    return blob;
   }
 
   function getAPI() {
@@ -33,34 +34,39 @@
       return;
     }
     try {
+      const modelOpts = {
+        ...(image ? { expectedInputs: [{ type: "text", languages: ["en"] }, { type: "image" }] } : {}),
+        expectedOutputs: [{ type: "text", languages: ["en"] }]
+      };
+      const createOpts = { ...modelOpts };
+      const system = messages.find((m) => m.role === "system")?.content;
+      const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+      if (system) createOpts.initialPrompts = [{ role: "system", content: system }];
+
       let availability = "available";
       try {
-        if (typeof API.availability === "function") availability = await API.availability();
+        if (typeof API.availability === "function") availability = await API.availability(modelOpts);
         else if (typeof API.capabilities === "function") availability = (await API.capabilities())?.available;
       } catch {}
       if (availability === "unavailable" || availability === "no") {
         reply(id, "error", { error: "Gemini Nano is unavailable on this device." });
         return;
       }
-      if (availability === "downloadable" || availability === "downloading" || availability === "after-download") {
-        reply(id, "token", { text: "(downloading on-device model — first run can take a minute)\n\n" });
-      }
-
-      const system = messages.find((m) => m.role === "system")?.content;
-      const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
-
-      const createOpts = {};
-      if (system) createOpts.initialPrompts = [{ role: "system", content: system }];
-      if (image) createOpts.expectedInputs = [{ type: "image" }];
+      if (availability === "downloadable" || availability === "downloading" || availability === "after-download") reply(id, "token", { text: "(downloading on-device model — first run can take a minute)\n\n" });
+      createOpts.monitor = (monitor) => {
+        monitor.addEventListener?.("downloadprogress", (e) => {
+          if (Number.isFinite(e.loaded)) reply(id, "token", { text: `(model download ${Math.round(e.loaded * 100)}%)\n` });
+        });
+      };
 
       const session = await API.create(createOpts);
 
       let promptInput = lastUser;
       if (image) {
-        const bmp = await dataUrlToBitmap(image);
+        const img = await dataUrlToImageValue(image);
         promptInput = [{ role: "user", content: [
           { type: "text", value: lastUser || "Solve the question in this image." },
-          { type: "image", value: bmp }
+          { type: "image", value: img }
         ] }];
       }
 

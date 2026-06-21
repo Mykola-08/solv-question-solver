@@ -1,7 +1,7 @@
 # Solv — Inline Question Solver (Chrome extension)
 
-Select text or screenshot a question on any page and get a direct AI answer in a small
-overlay — no copy-paste, no tab switching. Built for checking your own homework.
+Select text or screenshot a question on any page and get a second-opinion tutor response
+in a small overlay — no copy-paste, no tab switching. Built for checking your own work.
 
 Use **whatever access you already have** — four kinds of backend:
 - **Your subscription (no key)** — drives your already-logged-in **ChatGPT / Claude / Gemini** tab.
@@ -9,10 +9,10 @@ Use **whatever access you already have** — four kinds of backend:
   and reads the reply back.
 - **API key** — OpenAI, Anthropic (Claude), or Google Gemini (supports image questions)
 - **Local** — Ollama on `localhost` (free, offline, private)
-- **On-device** — Chrome's built-in AI (Gemini Nano), no key at all
+- **On-device** — Chrome's built-in AI (Gemini Nano / Prompt API), no key at all
 
 ### Two surfaces
-- **In-page overlay** — select text / screenshot a region → answer floats on the page. Draggable, Esc to close.
+- **In-page overlay** — select text / screenshot a region → a second-opinion answer floats on the page. Draggable, Esc to close.
 - **Side panel** — a full chat assistant (open from the popup → *Side panel*, or the ⇥ button on the overlay).
   Type or **paste/attach an image**, keep a running conversation, switch provider/model/mode live.
 
@@ -57,6 +57,7 @@ node scripts/package-extension.mjs
 
 The package script writes a Chrome Web Store ZIP to `dist/`. Store listing copy, privacy text,
 review notes, and asset requirements live in `store/`; manual smoke tests live in `QA.md`.
+Generate the store screenshots and promo tiles with `node scripts/generate-store-assets.mjs`.
 
 ## Use
 
@@ -77,7 +78,7 @@ hit **Verify** anytime, ask a **follow-up**, or **Copy** the answer. Drag the pa
 | Anthropic | yes | yes (Claude) |
 | Gemini | yes | yes |
 | Ollama | no (local) | use a vision model: `llava`, `llama3.2-vision` |
-| Chrome built-in | no | depends on Chrome version |
+| Chrome built-in | no | text and, on supported Chrome builds, images |
 
 **Login providers:** keep a tab signed in at chatgpt.com / claude.ai / gemini.google.com. The first
 time you solve, Solv opens that tab in the background, types your question, and streams the reply back
@@ -96,7 +97,10 @@ brief focus while solving or use an API vision provider for the most reliable im
   [Anthropic](https://console.anthropic.com/settings/keys) ·
   [Google AI Studio](https://aistudio.google.com/apikey)
 - Ollama: install from [ollama.com](https://ollama.com), run `ollama serve`, `ollama pull llama3.2`.
-- Chrome built-in AI: needs a recent Chrome with the Prompt API / Gemini Nano enabled (see `chrome://flags`).
+- Chrome built-in AI: needs a recent desktop Chrome with the Prompt API / Gemini Nano enabled (see `chrome://flags`).
+  Solv checks `LanguageModel.availability()` with the same text/image options it uses at runtime, shows model
+  download progress on first use, and exposes a **Test Chrome AI** button in Settings. `chrome://on-device-internals`
+  shows the downloaded model state for troubleshooting.
 
 ## Privacy
 

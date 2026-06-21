@@ -52,10 +52,11 @@ MATH & SCIENCE — be rigorous:
     ],
     anthropic: [
       { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (vision)" },
-      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fast)" },
-      { id: "claude-opus-4-1", label: "Claude Opus 4.1 (if enabled)" }
+      { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (fast)" },
+      { id: "claude-opus-4-8", label: "Claude Opus 4.8 (if enabled)" }
     ],
     gemini: [
+      { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite (low cost)" },
       { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash (vision)" },
       { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (vision)" },
       { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (vision, reasoning)" }

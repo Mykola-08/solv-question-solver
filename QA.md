@@ -4,6 +4,7 @@ Run before publishing a new ZIP.
 
 ## Automated
 - `node scripts/validate-extension.mjs`
+- `node scripts/generate-store-assets.mjs`
 - `node scripts/package-extension.mjs`
 - Upload `dist/solv-<version>.zip` to the Chrome Developer Dashboard as a draft upload validation.
 
@@ -28,4 +29,6 @@ Run before publishing a new ZIP.
 ## Store Review Check
 - Confirm `store/listing.md` matches the current feature set.
 - Confirm `store/privacy.md` matches the dashboard privacy disclosures.
-- Confirm screenshots and promo tile meet the dimensions in `store/assets/README.md`.
+- Confirm `store/assets/screenshot-1.png` through `screenshot-5.png` are current, 1280x800, and not visually cropped.
+- Confirm `store/assets/promo-small.png` is 440x280 and `store/assets/promo-marquee.png` is 1400x560.
+- Confirm listing language uses second-opinion tutor positioning and does not imply automated page reading or a Solv backend.

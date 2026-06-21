@@ -11,6 +11,16 @@ const HINTS = {
   builtin: "On-device Gemini Nano. No key. Needs a recent Chrome with the Prompt API."
 };
 let settings = {};
+const hasCreds = (p) => p === "openai" ? !!settings.keys?.openai :
+  p === "anthropic" ? !!settings.keys?.anthropic :
+  p === "gemini" ? !!settings.keys?.gemini : true;
+function showStatus(text = "Saved", tone = "good") {
+  const s = $("status");
+  s.textContent = text;
+  s.classList.toggle("bad", tone === "bad");
+  s.classList.add("show");
+  setTimeout(() => s.classList.remove("show"), 1800);
+}
 
 async function load() {
   settings = await new Promise((res) => chrome.runtime.sendMessage({ type: "getSettings" }, res));
@@ -26,7 +36,8 @@ async function load() {
 function syncModel() {
   const p = $("provider").value;
   const sel = $("model"), custom = $("modelCustom"), list = SOLV.MODELS[p] || [];
-  $("keyHint").textContent = HINTS[p];
+  const ready = hasCreds(p);
+  $("keyHint").textContent = ready ? HINTS[p] : `${HINTS[p]} Open Settings to add and test the key.`;
   if (SOLV.WEB_PROVIDERS.has(p)) { sel.innerHTML = `<option>set in the site</option>`; sel.disabled = true; custom.hidden = true; return; }
   sel.disabled = false;
   const cur = settings.models?.[p] || SOLV.DEFAULT_MODELS[p];
@@ -48,7 +59,7 @@ $("save").addEventListener("click", async () => {
     settings.models = { ...settings.models, [p]: chosen };
   }
   await chrome.storage.local.set({ settings });
-  const s = $("status"); s.classList.add("show"); setTimeout(() => s.classList.remove("show"), 1200);
+  showStatus(hasCreds(p) ? "Saved" : "Saved · setup needed", hasCreds(p) ? "good" : "bad");
 });
 $("opts").addEventListener("click", () => chrome.runtime.openOptionsPage());
 $("side").addEventListener("click", async () => {
@@ -61,7 +72,9 @@ $("side").addEventListener("click", async () => {
       await chrome.sidePanel.open({ windowId: win.id });
     }
     window.close();
-  } catch (e) {}
+  } catch (e) {
+    showStatus("Side panel unavailable", "bad");
+  }
 });
 
 load();

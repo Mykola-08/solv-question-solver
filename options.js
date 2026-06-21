@@ -23,13 +23,14 @@ const OV_KEYS = ["compact", "showModel", "showModes", "showConf", "showReasoning
 
 const SOLV = globalThis.SOLV;
 const $ = (id) => document.getElementById(id);
+const esc = (s = "") => SOLV.render.escapeHtml(String(s)).replace(/"/g, "&quot;");
 
 function buildModeUI(selectedMode, modePrompts) {
   $("defaultMode").innerHTML = SOLV.MODES.map((m) =>
-    `<option value="${m.id}"${m.id === selectedMode ? " selected" : ""}>${m.label} — ${m.desc}</option>`).join("");
+    `<option value="${esc(m.id)}"${m.id === selectedMode ? " selected" : ""}>${esc(m.label)} — ${esc(m.desc)}</option>`).join("");
   $("modePrompts").innerHTML = SOLV.MODES.map((m) =>
-    `<label>${m.label} <span style="color:var(--mut);text-transform:none;letter-spacing:0">(${m.desc})</span></label>
-     <textarea data-mode="${m.id}" placeholder="${m.prompt.replace(/"/g, "&quot;")}">${(modePrompts && modePrompts[m.id]) || ""}</textarea>`).join("");
+    `<label>${esc(m.label)} <span style="color:var(--mut);text-transform:none;letter-spacing:0">(${esc(m.desc)})</span></label>
+     <textarea data-mode="${esc(m.id)}" placeholder="${esc(m.prompt)}">${SOLV.render.escapeHtml((modePrompts && modePrompts[m.id]) || "")}</textarea>`).join("");
 }
 function readModePrompts() {
   const out = {};
@@ -41,7 +42,7 @@ function buildVisChecks(containerId, pairs, selected) {
   const all = pairs.map((p) => p[0]);
   const isAll = !selected || selected.length === 0;
   $(containerId).innerHTML = pairs.map(([id, label]) =>
-    `<label><input type="checkbox" data-id="${id}" ${isAll || selected.includes(id) ? "checked" : ""}/> ${label}</label>`).join("");
+    `<label><input type="checkbox" data-id="${esc(id)}" ${isAll || selected.includes(id) ? "checked" : ""}/> ${esc(label)}</label>`).join("");
 }
 function readVisChecks(containerId, total) {
   const chosen = [...document.querySelectorAll(`#${containerId} input`)].filter((c) => c.checked).map((c) => c.dataset.id);
@@ -105,6 +106,13 @@ async function load() {
 
 $("resetPrompts").addEventListener("click", () => { document.querySelectorAll("#modePrompts textarea").forEach((t) => (t.value = "")); });
 
+$("resetOverlayPosition").addEventListener("click", async () => {
+  await chrome.storage.local.remove("panelPos");
+  const status = $("resetOverlayStatus");
+  status.className = "test-status good";
+  status.textContent = "Overlay position reset. The next overlay opens in the default corner.";
+});
+
 $("confidenceThreshold").addEventListener("input", (e) => ($("thVal").textContent = e.target.value));
 
 document.querySelectorAll("[data-test]").forEach((btn) => {
@@ -114,6 +122,19 @@ document.querySelectorAll("[data-test]").forEach((btn) => {
     btn.disabled = true;
     status.className = "test-status";
     status.textContent = "Testing connection...";
+    if (provider === "builtin") {
+      try {
+        const message = await testBuiltinAI();
+        status.className = "test-status good";
+        status.textContent = message;
+      } catch (e) {
+        status.className = "test-status bad";
+        status.textContent = String(e?.message || e);
+      } finally {
+        btn.disabled = false;
+      }
+      return;
+    }
     chrome.runtime.sendMessage({ type: "testProvider", provider, settings: readSettingsFromForm() }, (resp) => {
       btn.disabled = false;
       const ok = !!resp?.ok;
@@ -122,6 +143,32 @@ document.querySelectorAll("[data-test]").forEach((btn) => {
     });
   });
 });
+
+async function testBuiltinAI() {
+  const API = (typeof LanguageModel !== "undefined") ? LanguageModel : globalThis.ai?.languageModel;
+  if (!API) throw new Error("Prompt API not found. Enable Gemini Nano / Prompt API in chrome://flags, then reload this page.");
+  const opts = {
+    expectedInputs: [{ type: "text", languages: ["en"] }],
+    expectedOutputs: [{ type: "text", languages: ["en"] }]
+  };
+  let availability = "available";
+  if (typeof API.availability === "function") availability = await API.availability(opts);
+  if (availability === "unavailable" || availability === "no") throw new Error("Gemini Nano is unavailable on this device or Chrome profile.");
+  if (availability === "downloadable" || availability === "downloading" || availability === "after-download") {
+    const session = await API.create({
+      ...opts,
+      monitor(monitor) {
+        monitor.addEventListener?.("downloadprogress", (e) => {
+          if (Number.isFinite(e.loaded)) $("test_builtin").textContent = `Downloading model ${Math.round(e.loaded * 100)}%...`;
+        });
+      }
+    });
+    session.destroy?.();
+    return "Chrome AI is enabled; model download has started.";
+  }
+  const params = typeof API.params === "function" ? await API.params().catch(() => null) : null;
+  return params ? `Chrome AI ready. Default temperature ${params.defaultTemperature}, top-K ${params.defaultTopK}.` : "Chrome AI ready.";
+}
 
 document.querySelectorAll("[data-reset-model]").forEach((btn) => {
   btn.addEventListener("click", () => {

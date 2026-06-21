@@ -8,6 +8,8 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const errors = [];
 const warnings = [];
 const ok = [];
+const PACKAGE_FILE_LIMIT = 2_000_000;
+const ZIP_FILE_LIMIT = 20_000_000;
 
 const rel = (p) => join(root, p);
 const fail = (msg) => errors.push(msg);
@@ -29,6 +31,25 @@ function walk(dir, out = []) {
 function checkExists(path, label = path) {
   if (!existsSync(rel(path))) fail(`${label} is referenced but missing: ${path}`);
   else pass(`${label} exists`);
+}
+
+function checkPackagedFileSize(path) {
+  if (!existsSync(rel(path))) return;
+  const size = statSync(rel(path)).size;
+  if (size > PACKAGE_FILE_LIMIT) fail(`${path} is ${Math.round(size / 1024 / 1024)}MB; packaged extension files must stay under 2MB each`);
+}
+
+function checkIconButtonLabels(file, text) {
+  const buttonRe = /<button\b([^>]*)>([\s\S]*?)<\/button>/gi;
+  let match;
+  while ((match = buttonRe.exec(text))) {
+    const attrs = match[1] || "";
+    const body = (match[2] || "").replace(/<[^>]+>/g, "").trim();
+    const isIconOnly = body && body.length <= 3 && !/[a-z0-9]/i.test(body);
+    if (isIconOnly && !/\baria-label\s*=/.test(attrs)) {
+      warn(`icon-only button in ${file} should include aria-label: ${body}`);
+    }
+  }
 }
 
 function pngSize(path) {
@@ -75,6 +96,7 @@ if (manifest) {
   for (const group of manifest.web_accessible_resources || []) {
     for (const resource of group.resources || []) checkExists(resource, "web accessible resource");
   }
+  checkExists("ui.css", "shared extension stylesheet");
 
   const listing = existsSync(rel("store/listing.md")) ? readFileSync(rel("store/listing.md"), "utf8") : "";
   for (const permission of manifest.permissions || []) {
@@ -95,11 +117,53 @@ for (const file of walk(".")) {
     const text = readFileSync(rel(file), "utf8");
     if (/<script[^>]+src=["']https?:\/\//i.test(text)) fail(`Remote script found in ${file}`);
     if (/\b(eval|new Function)\s*\(/.test(text)) fail(`Dynamic code execution pattern found in ${file}`);
+    if (extname(file) === ".html") checkIconButtonLabels(file, text);
+  }
+
+  if ([".html", ".js", ".mjs", ".css", ".json", ".png"].includes(extname(file)) && !file.startsWith("./store/")) {
+    checkPackagedFileSize(file);
   }
 }
 
-for (const required of ["store/listing.md", "store/privacy.md", "store/review-notes.md", "store/assets/README.md", "QA.md", "scripts/package-extension.mjs"]) {
+for (const required of ["store/listing.md", "store/privacy.md", "store/review-notes.md", "store/assets/README.md", "QA.md", "scripts/package-extension.mjs", "scripts/generate-store-assets.mjs"]) {
   checkExists(required);
+}
+
+for (let i = 1; i <= 5; i++) {
+  const shot = `store/assets/screenshot-${i}.png`;
+  checkExists(shot, `${shot}`);
+  if (existsSync(rel(shot))) {
+    try {
+      const actual = pngSize(shot);
+      if (actual.width !== 1280 || actual.height !== 800) fail(`${shot} is ${actual.width}x${actual.height}, expected 1280x800`);
+    } catch (e) {
+      fail(`${shot} is not a valid PNG: ${e.message}`);
+    }
+  }
+}
+
+for (const [asset, width, height] of [
+  ["store/assets/promo-small.png", 440, 280],
+  ["store/assets/promo-marquee.png", 1400, 560]
+]) {
+  checkExists(asset, asset);
+  if (existsSync(rel(asset))) {
+    try {
+      const actual = pngSize(asset);
+      if (actual.width !== width || actual.height !== height) fail(`${asset} is ${actual.width}x${actual.height}, expected ${width}x${height}`);
+    } catch (e) {
+      fail(`${asset} is not a valid PNG: ${e.message}`);
+    }
+  }
+}
+
+if (existsSync(rel("dist"))) {
+  for (const name of readdirSync(rel("dist"))) {
+    if (name.endsWith(".zip")) {
+      const size = statSync(rel(`dist/${name}`)).size;
+      if (size > ZIP_FILE_LIMIT) warn(`dist/${name} is ${Math.round(size / 1024 / 1024)}MB; Chrome Web Store uploads should stay lean`);
+    }
+  }
 }
 
 for (const line of ok) console.log(`ok: ${line}`);

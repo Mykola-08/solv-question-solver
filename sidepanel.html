@@ -6,28 +6,25 @@
 <title>Solv</title>
 <style>
   :root{
-    --bg:#0b0c12; --panel:#14161f; --panel2:#191c27; --line:#272c3b; --ink:#eef1f8; --mut:#9aa3b6;
-    --g1:#6c8cff; --g2:#9b6cff; --g3:#ff7eb6; --good:#3ad29f; --warn:#ffcf6b; --bad:#ff6b7d;
-    --grad:linear-gradient(120deg,var(--g1),var(--g2) 55%,var(--g3));
+    --bg:#f5f7fa; --panel:#ffffff; --panel2:#eef2f7; --line:rgba(15,23,42,.1); --ink:#111827; --mut:#64748b;
+    --g1:#0070ba; --g2:#003087; --g3:#6b7f99; --good:#087a55; --warn:#b7791f; --bad:#c2415a;
+    --grad:linear-gradient(135deg,var(--g1),var(--g2));
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
     --mono:ui-monospace,Menlo,monospace;
   }
   *{box-sizing:border-box}
   button,select,textarea,input{touch-action:manipulation}
-  button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid rgba(255,255,255,.72);outline-offset:2px}
+  button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid rgba(15,23,42,.34);outline-offset:2px}
   html,body{height:100%}
-  body{margin:0;background:
-      radial-gradient(700px 360px at 110% -10%,rgba(155,108,255,.18),transparent),
-      radial-gradient(600px 300px at -10% 0%,rgba(108,140,255,.16),transparent),
-      var(--bg);
+  body{margin:0;background:var(--bg);
     color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;font-size:14px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 
   .top{display:flex;align-items:center;justify-content:space-between;padding:12px 14px}
   .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;letter-spacing:-.01em}
-  .brand .logo{width:22px;height:22px;border-radius:7px;background:var(--grad);display:grid;place-items:center;color:#fff;font-size:12px;box-shadow:0 4px 14px rgba(108,140,255,.5)}
-  .brand .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .logo{width:22px;height:22px;border-radius:7px;background:var(--grad);display:grid;place-items:center;color:#fff;font-size:12px;box-shadow:0 8px 20px rgba(0,48,135,.18)}
+  .brand .grad{color:var(--g1)}
   .icon-btn{background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:14px;transition:color .15s ease,background-color .15s ease,transform .1s ease}
-  @media (hover:hover) and (pointer:fine){.icon-btn:hover{color:var(--ink);background:#1d2130}}
+  @media (hover:hover) and (pointer:fine){.icon-btn:hover{color:var(--ink);background:#fff}}
   .icon-btn:active{transform:scale(.97)}
 
   .controls{display:flex;gap:8px;padding:0 14px 10px}
@@ -37,7 +34,7 @@
   .mode{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:7px 8px;font-size:11.5px;font-weight:650;cursor:pointer;font-family:inherit;transition:background-color .15s ease,color .15s ease,border-color .15s ease,transform .1s ease;min-width:60px;min-height:32px}
   @media (hover:hover) and (pointer:fine){.mode:hover{color:var(--ink)}}
   .mode:active{transform:scale(.98)}
-  .mode.on{color:#fff;border-color:transparent;background:var(--grad);box-shadow:0 4px 16px rgba(124,108,255,.4)}
+  .mode.on{color:#fff;border-color:transparent;background:var(--g1);box-shadow:0 8px 20px rgba(0,112,186,.18)}
 
   .convo{flex:1;overflow-y:auto;padding:6px 14px 14px;display:flex;flex-direction:column;gap:14px}
   .empty{margin:auto;text-align:center;color:var(--mut);padding:30px 10px}
@@ -49,15 +46,15 @@
   .bubble-user{align-self:flex-end;max-width:88%;background:var(--panel2);border:1px solid var(--line);border-radius:12px 12px 4px 12px;padding:9px 12px;font-size:13px}
   .bubble-user img{max-width:160px;border-radius:8px;display:block;margin-top:6px}
   .ans{align-self:stretch}
-  .final{padding:12px 14px;border-radius:10px;background:linear-gradient(180deg,rgba(108,140,255,.16),rgba(155,108,255,.07));border:1px solid rgba(124,140,255,.4)}
+  .final{padding:12px 14px;border-radius:10px;background:#fff;border:1px solid var(--line)}
   .final .fhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
-  .final .lab{font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .final .txt{font-size:15px;font-weight:600;color:#fff;line-height:1.45}
+  .final .lab{font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:var(--g1)}
+  .final .txt{font-size:15px;font-weight:600;color:var(--ink);line-height:1.45}
   .final .meta{margin-top:8px;font-size:11px;color:var(--mut)}
   .cbadge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;color:#061018;background:var(--good);white-space:nowrap;font-variant-numeric:tabular-nums}
   .cbadge[data-tone="warn"]{background:var(--warn)}.cbadge[data-tone="bad"]{background:var(--bad);color:#2a0a10}
   .choice{display:flex;align-items:center;gap:12px}
-  .cbadge-letter{flex:0 0 auto;width:42px;height:42px;border-radius:10px;display:grid;place-items:center;font-size:22px;font-weight:800;color:#fff;background:var(--grad);box-shadow:0 6px 18px rgba(124,108,255,.5)}
+  .cbadge-letter{flex:0 0 auto;width:42px;height:42px;border-radius:10px;display:grid;place-items:center;font-size:22px;font-weight:800;color:#fff;background:var(--g1);box-shadow:0 8px 20px rgba(0,112,186,.18)}
   details.reason{margin-top:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
   details.reason summary{cursor:pointer;padding:9px 12px;font-size:12px;font-weight:600;color:var(--mut);list-style:none}
   details.reason summary::-webkit-details-marker{display:none}
@@ -67,11 +64,14 @@
   .conf{margin-top:10px}
   .conf-row{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
   .conf-num{font-weight:700;color:var(--ink)}
-  .track{height:7px;border-radius:999px;background:#0e1018;margin-top:6px;overflow:hidden}
+  .track{height:7px;border-radius:999px;background:var(--panel2);margin-top:6px;overflow:hidden}
   .fill{height:100%;width:0;border-radius:999px;background:var(--grad);transition:width .5s cubic-bezier(.2,.8,.2,1)}
   .fill[data-tone="warn"]{background:linear-gradient(90deg,#ffcf6b,#ff9f43)}
   .fill[data-tone="bad"]{background:linear-gradient(90deg,#ff8a8a,#ff6b7d)}
   .verify{margin-top:9px;font-size:12.5px}
+  .ans-actions{display:flex;gap:4px;margin-top:10px}
+  .ans-act{width:40px;height:40px;background:transparent;border:none;color:var(--mut);box-shadow:none;font-size:14px;padding:0}
+  @media (hover:hover) and (pointer:fine){.ans-act:hover{background:rgba(24,32,29,.06);filter:none}}
   .badge{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px}
   .badge.good{color:var(--good);background:rgba(58,210,159,.12)}
   .badge.bad{color:var(--bad);background:rgba(255,107,125,.12)}
@@ -82,23 +82,23 @@
   @keyframes b{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}
 
   /* error card */
-  .err{border:1px solid rgba(255,107,125,.4);background:rgba(255,107,125,.07);border-radius:12px;padding:11px 13px}
-  .err .t{font-weight:700;color:#ffb3bd;margin-bottom:6px}
+  .err{border:1px solid rgba(194,65,90,.22);background:#fff;border-radius:12px;padding:11px 13px}
+  .err .t{font-weight:700;color:var(--bad);margin-bottom:6px}
   .err ol{margin:0 0 8px;padding-left:18px;color:var(--mut);font-size:12.5px}
   .err .row{display:flex;gap:8px}
 
   /* markdown */
-  .ans code,.bubble-user code,.reason-body code{background:#0e1018;border:1px solid var(--line);padding:1px 5px;border-radius:5px;font-size:12.5px;font-family:var(--mono)}
-  .ans pre{background:#0e1018;border:1px solid var(--line);border-radius:9px;padding:10px;overflow-x:auto;font-size:12.5px;font-family:var(--mono)}
-  .solv-h1{font-weight:700;color:#fff;margin:8px 0 3px}.solv-h2{font-weight:700;color:#e3e8f5;margin:6px 0 3px}
+  .ans code,.bubble-user code,.reason-body code{background:var(--panel2);border:1px solid var(--line);padding:1px 5px;border-radius:5px;font-size:12.5px;font-family:var(--mono)}
+  .ans pre{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px;overflow-x:auto;font-size:12.5px;font-family:var(--mono)}
+  .solv-h1{font-weight:700;color:var(--ink);margin:8px 0 3px}.solv-h2{font-weight:700;color:var(--ink);margin:6px 0 3px}
   .solv-li{margin:2px 0}.ans blockquote{border-left:3px solid var(--g1);margin:6px 0;padding:2px 0 2px 10px;color:var(--mut)}
   .ans hr{border:none;border-top:1px solid var(--line);margin:8px 0}
   .solv-table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12.5px}
   .solv-table th,.solv-table td{border:1px solid var(--line);padding:5px 8px;text-align:left}
-  .solv-table th{background:#0e1018;color:#cdd6ff}
+  .solv-table th{background:var(--panel2);color:var(--ink)}
 
   /* composer */
-  .composer{border-top:1px solid var(--line);background:rgba(13,15,22,.7);backdrop-filter:blur(8px);padding:10px 12px}
+  .composer{border-top:1px solid var(--line);background:rgba(255,255,255,.92);backdrop-filter:blur(8px);padding:10px 12px}
   .attach-chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:5px 8px;font-size:11.5px;color:var(--mut);margin-bottom:8px}
   .attach-chip img{height:26px;border-radius:5px}
   .attach-chip button{background:none;border:none;color:var(--mut);cursor:pointer}
@@ -109,15 +109,16 @@
   .send:active,.attach:active{transform:scale(.97)}
   .attach{width:40px;background:var(--panel2);border:1px solid var(--line);color:var(--mut)}
   .attach:hover{color:var(--ink)}
-  .send{width:44px;background:var(--grad);color:#fff;font-weight:700;box-shadow:0 6px 18px rgba(124,108,255,.45)}
+  .send{width:44px;background:var(--g1);color:#fff;font-weight:700;box-shadow:0 8px 20px rgba(0,112,186,.18)}
   .send:disabled{opacity:.5;cursor:default;box-shadow:none}
   .hint{font-size:11px;color:var(--mut);margin-top:7px}
   a{color:var(--g1)}
 </style>
+<link rel="stylesheet" href="ui.css" />
 </head>
-<body>
+<body class="sidepanel-page">
   <div class="top">
-    <div class="brand"><span class="logo">✦</span> <span>Sol<span class="grad">v</span></span></div>
+    <div class="brand"><span class="logo">S</span> <span>Sol<span class="grad">v</span></span></div>
     <button class="icon-btn" id="gear" title="Settings" aria-label="Open settings">⚙</button>
   </div>
   <div class="controls">
@@ -128,9 +129,9 @@
 
   <div class="convo" id="convo">
     <div class="empty" id="empty">
-      <div class="big">✦</div>
+      <div class="big">S</div>
       <div>Ask a question, paste a screenshot, or attach an image.</div>
-      <div style="margin-top:10px;font-size:12.5px">On any page you can also select text and click <b>Solve</b>, or press <kbd>Alt</kbd>+<kbd>A</kbd> / <kbd>Alt</kbd>+<kbd>S</kbd>.</div>
+      <div id="emptyHint" style="margin-top:10px;font-size:12.5px">Choose a provider, test it in Settings, then ask here or solve selected text on any page.</div>
     </div>
   </div>
 
@@ -140,7 +141,7 @@
       <button class="attach" id="attach" title="Attach image" aria-label="Attach image">🖼</button>
       <input type="file" id="file" accept="image/*" hidden />
       <textarea id="input" rows="1" placeholder="Type or paste a question…"></textarea>
-      <button class="send" id="send" title="Send (Enter)" aria-label="Send question">➤</button>
+      <button class="send" id="send" title="Send (Enter or Cmd/Ctrl+Enter)" aria-label="Send question">➤</button>
     </div>
     <div class="hint" id="hint"></div>
   </div>
