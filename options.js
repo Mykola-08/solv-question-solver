@@ -1,12 +1,22 @@
 const DEFAULTS = {
   provider: "openai",
-  keys: { openai: "", anthropic: "", gemini: "" },
+  keys: { openai: "", openrouter: "", anthropic: "", gemini: "", custom_openai: "" },
   models: {
     openai: "gpt-5.4-mini",
+    openrouter: "openai/gpt-4o-mini",
+    custom_openai: "gpt-4o-mini",
     anthropic: "claude-sonnet-4-6",
     gemini: "gemini-2.5-flash",
     ollama: "llama3.2",
     builtin: "gemini-nano"
+  },
+  customOpenAI: {
+    name: "Custom provider",
+    baseUrl: "https://api.openai.com/v1",
+    key: "",
+    model: "gpt-4o-mini",
+    authHeader: "Authorization",
+    authPrefix: "Bearer"
   },
   ollamaUrl: "http://localhost:11434",
   confidenceThreshold: 70,
@@ -24,6 +34,35 @@ const OV_KEYS = ["compact", "showModel", "showModes", "showConf", "showReasoning
 const SOLV = globalThis.SOLV;
 const $ = (id) => document.getElementById(id);
 const esc = (s = "") => SOLV.render.escapeHtml(String(s)).replace(/"/g, "&quot;");
+let browserCaps = SOLV.browserInfo();
+
+function supportFor(provider) {
+  return SOLV.providerSupport(provider, browserCaps);
+}
+
+function renderBrowserSupport() {
+  browserCaps = SOLV.browserInfo();
+  const rows = [
+    ["Browser", browserCaps.name],
+    ["Side panel", browserCaps.sidePanel ? "Native side panel" : "Extension tab fallback"],
+    ["Built-in AI", browserCaps.promptApi ? "Available" : "Not available here"],
+    ["Custom endpoints", browserCaps.permissionsRequest ? "Runtime permission prompts supported" : "May need pre-granted host access"]
+  ];
+  $("browserSupport").innerHTML = `<h3>Browser support</h3><ol>${rows.map(([k, v]) => `<li><b>${esc(k)}:</b> ${esc(v)}</li>`).join("")}</ol>`;
+}
+
+function applyProviderOptionSupport() {
+  document.querySelectorAll("#provider option").forEach((opt) => {
+    const support = supportFor(opt.value);
+    opt.disabled = !support.ok;
+    if (!support.ok || support.warn) opt.textContent = `${SOLV.PROVIDER_LABELS[opt.value] || opt.textContent} — ${support.ok ? "limited" : "unsupported"}`;
+    opt.title = support.reason || support.warn || "";
+  });
+  if ($("provider").selectedOptions[0]?.disabled) {
+    const first = [...$("provider").options].find((o) => !o.disabled);
+    if (first) $("provider").value = first.value;
+  }
+}
 
 function buildModeUI(selectedMode, modePrompts) {
   $("defaultMode").innerHTML = SOLV.MODES.map((m) =>
@@ -54,15 +93,27 @@ function readSettingsFromForm() {
     provider: $("provider").value,
     keys: {
       openai: $("key_openai").value.trim(),
+      openrouter: $("key_openrouter").value.trim(),
       anthropic: $("key_anthropic").value.trim(),
-      gemini: $("key_gemini").value.trim()
+      gemini: $("key_gemini").value.trim(),
+      custom_openai: $("key_custom_openai").value.trim()
     },
     models: {
       openai: $("model_openai").value.trim() || DEFAULTS.models.openai,
+      openrouter: $("model_openrouter").value.trim() || DEFAULTS.models.openrouter,
+      custom_openai: $("model_custom_openai").value.trim() || DEFAULTS.models.custom_openai,
       anthropic: $("model_anthropic").value.trim() || DEFAULTS.models.anthropic,
       gemini: $("model_gemini").value.trim() || DEFAULTS.models.gemini,
       ollama: $("model_ollama").value.trim() || DEFAULTS.models.ollama,
       builtin: DEFAULTS.models.builtin
+    },
+    customOpenAI: {
+      name: $("customName").value.trim() || DEFAULTS.customOpenAI.name,
+      baseUrl: $("customBaseUrl").value.trim() || DEFAULTS.customOpenAI.baseUrl,
+      key: $("key_custom_openai").value.trim(),
+      model: $("model_custom_openai").value.trim() || DEFAULTS.models.custom_openai,
+      authHeader: $("customAuthHeader").value.trim() || DEFAULTS.customOpenAI.authHeader,
+      authPrefix: $("customAuthPrefix").value.trim()
     },
     ollamaUrl: $("ollamaUrl").value.trim() || DEFAULTS.ollamaUrl,
     confidenceThreshold: parseInt($("confidenceThreshold").value, 10),
@@ -83,23 +134,38 @@ async function load() {
     ...DEFAULTS, ...(stored.settings || {}),
     keys: { ...DEFAULTS.keys, ...(stored.settings?.keys || {}) },
     models: { ...DEFAULTS.models, ...(stored.settings?.models || {}) },
+    customOpenAI: { ...DEFAULTS.customOpenAI, ...(stored.settings?.customOpenAI || {}) },
     overlay: { ...DEFAULTS.overlay, ...(stored.settings?.overlay || {}) }
   };
+  renderBrowserSupport();
   $("provider").value = s.provider;
+  applyProviderOptionSupport();
   $("key_openai").value = s.keys.openai;
+  $("key_openrouter").value = s.keys.openrouter;
   $("key_anthropic").value = s.keys.anthropic;
   $("key_gemini").value = s.keys.gemini;
+  $("key_custom_openai").value = s.customOpenAI.key || s.keys.custom_openai || "";
   $("model_openai").value = s.models.openai;
+  $("model_openrouter").value = s.models.openrouter;
+  $("model_custom_openai").value = s.models.custom_openai || s.customOpenAI.model;
   $("model_anthropic").value = s.models.anthropic;
   $("model_gemini").value = s.models.gemini;
   $("model_ollama").value = s.models.ollama;
   $("ollamaUrl").value = s.ollamaUrl;
+  $("customName").value = s.customOpenAI.name;
+  $("customBaseUrl").value = s.customOpenAI.baseUrl;
+  $("customAuthHeader").value = s.customOpenAI.authHeader;
+  $("customAuthPrefix").value = s.customOpenAI.authPrefix;
   $("confidenceThreshold").value = s.confidenceThreshold;
   $("thVal").textContent = s.confidenceThreshold;
   $("autoVerify").checked = s.autoVerify;
   $("webFocusTab").checked = s.webFocusTab;
   OV_KEYS.forEach((k) => { $("ov_" + k).checked = s.overlay[k] !== false; });
-  buildVisChecks("visProviders", SOLV.PROVIDER_GROUPS.flatMap((g) => g.items).map((p) => [p, SOLV.PROVIDER_LABELS[p]]), s.visibleProviders);
+  buildVisChecks("visProviders", SOLV.PROVIDER_GROUPS.flatMap((g) => g.items).map((p) => {
+    const support = supportFor(p);
+    const suffix = !support.ok ? " (unsupported here)" : support.warn ? " (limited)" : "";
+    return [p, `${SOLV.PROVIDER_LABELS[p]}${suffix}`];
+  }), s.visibleProviders);
   buildVisChecks("visModes", SOLV.MODES.map((m) => [m.id, m.label]), s.visibleModes);
   buildModeUI(s.defaultMode || "short", s.modePrompts || {});
 }
@@ -110,10 +176,35 @@ $("resetOverlayPosition").addEventListener("click", async () => {
   await chrome.storage.local.remove("panelPos");
   const status = $("resetOverlayStatus");
   status.className = "test-status good";
-  status.textContent = "Overlay position reset. The next overlay opens in the default corner.";
+  status.textContent = "Overlay position reset. The next overlay opens beside your selection or capture.";
 });
 
 $("confidenceThreshold").addEventListener("input", (e) => ($("thVal").textContent = e.target.value));
+
+function endpointOriginPattern(raw) {
+  const url = new URL(String(raw || "").trim());
+  return `${url.origin}/*`;
+}
+async function requestCustomEndpointAccess() {
+  const status = $("test_custom_openai");
+  try {
+    const origin = endpointOriginPattern($("customBaseUrl").value || DEFAULTS.customOpenAI.baseUrl);
+    if (!chrome.permissions?.request) {
+      status.className = "test-status bad";
+      status.textContent = "This browser does not expose chrome.permissions.request. Add the endpoint to host permissions or use a built-in provider.";
+      return false;
+    }
+    const granted = await chrome.permissions.request({ origins: [origin] });
+    status.className = "test-status " + (granted ? "good" : "bad");
+    status.textContent = granted ? `Endpoint access granted for ${origin}` : `Endpoint access was not granted for ${origin}`;
+    return granted;
+  } catch (e) {
+    status.className = "test-status bad";
+    status.textContent = String(e?.message || e);
+    return false;
+  }
+}
+$("grantCustomEndpoint").addEventListener("click", requestCustomEndpointAccess);
 
 document.querySelectorAll("[data-test]").forEach((btn) => {
   btn.addEventListener("click", async () => {
@@ -135,6 +226,7 @@ document.querySelectorAll("[data-test]").forEach((btn) => {
       }
       return;
     }
+    if (provider === "custom_openai") await requestCustomEndpointAccess();
     chrome.runtime.sendMessage({ type: "testProvider", provider, settings: readSettingsFromForm() }, (resp) => {
       btn.disabled = false;
       const ok = !!resp?.ok;

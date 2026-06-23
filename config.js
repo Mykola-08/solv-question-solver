@@ -50,6 +50,19 @@ MATH & SCIENCE — be rigorous:
       { id: "gpt-4o", label: "GPT-4o (legacy vision)" },
       { id: "gpt-4o-mini", label: "GPT-4o mini (legacy)" }
     ],
+    openrouter: [
+      { id: "openai/gpt-4o-mini", label: "OpenAI GPT-4o mini" },
+      { id: "openai/gpt-4o", label: "OpenAI GPT-4o" },
+      { id: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet" },
+      { id: "google/gemini-2.0-flash-001", label: "Gemini 2.0 Flash" },
+      { id: "meta-llama/llama-3.3-70b-instruct", label: "Llama 3.3 70B" }
+    ],
+    custom_openai: [
+      { id: "gpt-4o-mini", label: "gpt-4o-mini" },
+      { id: "gpt-4o", label: "gpt-4o" },
+      { id: "llama3.2", label: "llama3.2" },
+      { id: "qwen2.5", label: "qwen2.5" }
+    ],
     anthropic: [
       { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (vision)" },
       { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (fast)" },
@@ -72,22 +85,64 @@ MATH & SCIENCE — be rigorous:
     web_chatgpt: [], web_claude: [], web_gemini: []
   };
   const DEFAULT_MODELS = {
-    openai: "gpt-5.4-mini", anthropic: "claude-sonnet-4-6", gemini: "gemini-2.5-flash",
-    ollama: "llama3.2", builtin: "gemini-nano"
+    openai: "gpt-5.4-mini", openrouter: "openai/gpt-4o-mini", custom_openai: "gpt-4o-mini",
+    anthropic: "claude-sonnet-4-6", gemini: "gemini-2.5-flash", ollama: "llama3.2", builtin: "gemini-nano"
   };
 
   const PROVIDER_LABELS = {
-    openai: "OpenAI · API", anthropic: "Claude · API", gemini: "Gemini · API",
+    openai: "OpenAI · API", openrouter: "OpenRouter · API", custom_openai: "Custom · OpenAI-compatible",
+    anthropic: "Claude · API", gemini: "Gemini · API",
     ollama: "Ollama · local", builtin: "Chrome AI",
     web_chatgpt: "ChatGPT · login", web_claude: "Claude · login", web_gemini: "Gemini · login"
   };
   const PROVIDER_GROUPS = [
     { label: "Your subscription (no key)", items: ["web_chatgpt", "web_claude", "web_gemini"] },
-    { label: "API key", items: ["openai", "anthropic", "gemini"] },
+    { label: "API key", items: ["openai", "openrouter", "anthropic", "gemini"] },
+    { label: "Custom endpoint", items: ["custom_openai"] },
     { label: "Local / on-device (no key)", items: ["ollama", "builtin"] }
   ];
   const WEB_PROVIDERS = new Set(["web_chatgpt", "web_claude", "web_gemini"]);
-  const VISION_PROVIDERS = new Set(["openai", "anthropic", "gemini", "ollama", "builtin", "web_chatgpt", "web_claude", "web_gemini"]);
+  const VISION_PROVIDERS = new Set(["openai", "openrouter", "custom_openai", "anthropic", "gemini", "ollama", "builtin", "web_chatgpt", "web_claude", "web_gemini"]);
+
+  function browserInfo() {
+    const ua = navigator.userAgent || "";
+    const brands = navigator.userAgentData?.brands?.map((b) => b.brand).join(" ") || "";
+    const haystack = `${brands} ${ua}`;
+    const name = /\bEdg\//.test(ua) ? "Microsoft Edge" :
+      /\bOPR\//.test(ua) || /Opera/i.test(haystack) ? "Opera" :
+      /Brave/i.test(haystack) ? "Brave" :
+      /Firefox/i.test(ua) ? "Firefox" :
+      /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua) ? "Safari" :
+      /Chrome|Chromium/i.test(ua) ? "Chrome / Chromium" : "Unknown browser";
+    return {
+      name,
+      ua,
+      chromium: /Chrome|Chromium|Edg|OPR/i.test(ua),
+      extensionApi: !!globalThis.chrome?.runtime?.id,
+      manifestV3: chrome.runtime?.getManifest?.().manifest_version === 3,
+      sidePanel: !!chrome.sidePanel?.open,
+      sidePanelLayout: !!chrome.sidePanel?.getLayout,
+      permissionsRequest: !!chrome.permissions?.request,
+      scripting: !!chrome.scripting?.executeScript,
+      tabs: !!chrome.tabs?.query,
+      contextMenus: !!chrome.contextMenus,
+      promptApi: typeof LanguageModel !== "undefined" || !!globalThis.ai?.languageModel,
+      sidePanelMode: chrome.sidePanel?.open ? "native side panel" : "extension tab fallback"
+    };
+  }
+
+  function providerSupport(provider, caps = browserInfo()) {
+    if (provider === "builtin" && !caps.promptApi) {
+      return { ok: false, reason: "Chrome built-in AI / Prompt API is not available in this browser or profile." };
+    }
+    if (WEB_PROVIDERS.has(provider) && !(caps.tabs && caps.scripting)) {
+      return { ok: false, reason: "Logged-in tab providers need tabs + scripting extension APIs." };
+    }
+    if (provider === "custom_openai" && !caps.permissionsRequest) {
+      return { ok: true, warn: "This browser may not support runtime endpoint permission prompts; pre-granted host permissions may be required." };
+    }
+    return { ok: true, reason: "" };
+  }
 
   // Map a raw error string to a friendly title + step-by-step fix.
   function friendlyError(msg, provider) {
@@ -96,7 +151,7 @@ MATH & SCIENCE — be rigorous:
     if (/401|invalid.*key|incorrect.*key|authentication|x-api-key|unauthorized/.test(m))
       return { title: "API key not accepted", steps: [
         "Open Settings and re-paste your key (no spaces).",
-        "Make sure the key matches the selected provider.",
+        "Make sure the key and auth format match the selected provider.",
         "Check the key is active and has credit/billing enabled." ], action: "options" };
     if (/429|rate limit|quota|insufficient_quota/.test(m))
       return { title: "Rate limited or out of quota", steps: [
@@ -137,7 +192,8 @@ MATH & SCIENCE — be rigorous:
       return { title: "Network or permission error", steps: [
         "Check your internet connection.",
         "Reload the page and try again.",
-        WEB_PROVIDERS.has(provider) ? `Make sure the ${site} tab is open and logged in.` : "Verify the provider host is allowed." ] };
+        provider === "custom_openai" ? "Open Settings, grant endpoint access, and verify the base URL." :
+          WEB_PROVIDERS.has(provider) ? `Make sure the ${site} tab is open and logged in.` : "Verify the provider host is allowed." ] };
     return { title: "Something went wrong", steps: [msg || "Unknown error.", "Press Retry, or switch provider/model in Settings."], action: "options" };
   }
 
@@ -237,6 +293,7 @@ MATH & SCIENCE — be rigorous:
   globalThis.SOLV = {
     SYSTEM_BASE, MODES, buildSystem, MODELS, DEFAULT_MODELS,
     PROVIDER_LABELS, PROVIDER_GROUPS, WEB_PROVIDERS, VISION_PROVIDERS,
+    browserInfo, providerSupport,
     friendlyError, latexToReadable,
     render: { escapeHtml, md: renderMd, parseConfidence, stripConfidence, extractAnswer, parseResult, confTone }
   };

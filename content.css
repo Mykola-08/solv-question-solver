@@ -1,13 +1,13 @@
 /* content.css — Solv in-page UI. Scoped under .solv-* and reset to avoid host bleed. */
 .solv-root, .solv-pill, .solv-region {
-  --sv-bg: #f6f8fb; --sv-panel: #ffffff; --sv-panel-2: #eef4f9; --sv-line: rgba(15,23,42,.075); --sv-ink: #0f1720;
+  --sv-bg: #f6f8fb; --sv-panel: #ffffff; --sv-panel-2: #eef4f9; --sv-line: rgba(15,23,42,.12); --sv-ink: #0f1720;
   --sv-mut: #66758a; --sv-accent: #006de5; --sv-g1: #006de5; --sv-g2: #0057be; --sv-g3: #6b7f99;
   --sv-good: #087a55; --sv-warn: #b7791f; --sv-bad: #c2415a;
   --sv-grad: var(--sv-accent);
   --sv-edge: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
   --sv-edge-soft: linear-gradient(180deg, rgba(255,255,255,.98), rgba(249,251,253,.9));
-  --sv-shadow: 0 0 0 1px rgba(15,23,42,.045), 0 24px 58px rgba(27,42,66,.16);
-  --sv-shadow-soft: 0 0 0 1px rgba(15,23,42,.045), 0 8px 22px rgba(27,42,66,.07);
+  --sv-outline: 0;
+  --sv-outline-soft: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
   box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
@@ -19,14 +19,26 @@
   outline: 2px solid rgba(15,23,42,.34);
   outline-offset: 2px;
 }
+.solv-root button svg,
+.solv-badge svg,
+.solv-error-title svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* selection pill */
 .solv-pill {
   position: absolute; z-index: 2147483646;
   display: inline-flex; align-items: center; gap: 6px;
-  background: var(--sv-grad); color: #fff; font-size: 13px; font-weight: 650;
+  background: var(--sv-accent); color: #fff; font-size: 13px; font-weight: 650;
   min-height: 36px; padding: 7px 13px; border-radius: 999px; cursor: pointer; user-select: none;
-  box-shadow: 0 12px 28px rgba(0,112,224,.22);
+  border: 0;
   animation: solv-pop .16s cubic-bezier(.2,.9,.3,1.2);
 }
 @media (hover: hover) and (pointer: fine) { .solv-pill:hover { filter: brightness(1.08); } }
@@ -43,9 +55,11 @@
   position: fixed; top: 20px; right: 20px; z-index: 2147483647;
   width: 372px; max-width: calc(100vw - 28px); max-height: 82vh;
   display: flex; flex-direction: column;
-  background: var(--sv-bg); color: var(--sv-ink);
-  border: 0; border-radius: 24px; overflow: hidden;
-  box-shadow: var(--sv-shadow);
+  background: #ffffff; color: var(--sv-ink);
+  border: 1px solid rgba(15,23,42,.14); border-radius: 26px; overflow: hidden;
+  outline: 3px solid rgba(255,255,255,.88);
+  outline-offset: 0;
+  box-shadow: none;
   animation: solv-slide .24s cubic-bezier(.2,.8,.25,1);
   font-size: 14px; line-height: 1.5;
 }
@@ -54,24 +68,24 @@
 .solv-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px 12px 16px; cursor: grab; user-select: none; position: relative;
-  background: var(--sv-edge-soft); border-bottom: 0;
-  box-shadow: 0 1px 0 rgba(255,255,255,.86);
+  background: #ffffff; border-bottom: 1px solid rgba(15,23,42,.06);
+  box-shadow: none;
   backdrop-filter: blur(14px);
 }
 .solv-head:active { cursor: grabbing; }
 .solv-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
 .solv-logo {
   width: 22px; height: 22px; border-radius: 10px; display: grid; place-items: center;
-  background: var(--sv-grad); color: #fff; font-size: 12px; box-shadow: 0 8px 20px rgba(0,48,135,.18);
+  background: var(--sv-accent); color: #fff; font-size: 12px; box-shadow: none;
 }
 .solv-head-actions { display: flex; gap: 2px; }
 .solv-icon {
-  background: var(--sv-edge); border: none; color: var(--sv-mut); cursor: pointer;
-  min-width: 40px; width: 40px; height: 40px; border-radius: 999px; font-size: 13px; line-height: 1;
+  background: var(--sv-panel-2); border: 0; color: var(--sv-mut); cursor: pointer;
+  min-width: 46px; width: 46px; height: 46px; border-radius: 999px; font-size: 13px; line-height: 1;
   display: grid; place-items: center; transition: background-color .15s ease, color .15s ease, transform .1s ease;
-  box-shadow: var(--sv-shadow-soft);
+  box-shadow: none;
 }
-@media (hover: hover) and (pointer: fine) { .solv-icon:hover { background: #fff; color: var(--sv-ink); box-shadow: 0 0 0 1px rgba(0,112,224,.10), 0 12px 26px rgba(27,42,66,.10); } }
+@media (hover: hover) and (pointer: fine) { .solv-icon:hover { background: #e6edf5; color: var(--sv-ink); box-shadow: none; } }
 .solv-icon:active { transform: scale(.96); }
 .solv-controls-open .solv-tune { background: rgba(0,112,186,.10); color: var(--sv-accent); }
 
@@ -82,51 +96,42 @@
 
 .solv-tools { display: flex; gap: 8px; padding-top: 4px; }
 .solv-select {
-  flex: 1; min-width: 0; background: var(--sv-edge); border: 0; color: var(--sv-ink);
+  flex: 1; min-width: 0; background: #f4f7fa; border: 0; color: var(--sv-ink);
   border-radius: 14px; padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none; cursor: pointer;
-  box-shadow: inset 0 0 0 1px var(--sv-line);
+  box-shadow: none;
 }
-.solv-select:focus { box-shadow: inset 0 0 0 1px rgba(0,112,224,.42), 0 0 0 4px rgba(0,112,224,.10); }
+.solv-select:focus { background: #ffffff; box-shadow: none; }
 .solv-select:disabled { opacity: .6; cursor: default; }
 
 .solv-modes { display: flex; gap: 5px; padding-top: 8px; }
 .solv-mode {
-  flex: 1; background: var(--sv-edge); border: 0; color: var(--sv-mut);
+  flex: 1; background: #f4f7fa; border: 0; color: var(--sv-mut);
   min-height: 34px; border-radius: 999px; padding: 6px 8px; font-size: 11.5px; font-weight: 650; cursor: pointer; font-family: inherit;
-  box-shadow: var(--sv-shadow-soft);
+  box-shadow: none;
   transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform .1s ease;
 }
 @media (hover: hover) and (pointer: fine) { .solv-mode:hover { color: var(--sv-ink); } }
 .solv-mode:active { transform: scale(.96); }
-.solv-mode.is-on { background: var(--sv-accent); color: #fff; border-color: transparent; box-shadow: 0 10px 24px rgba(0,112,224,.18); }
+.solv-mode.is-on { background: var(--sv-accent); color: #fff; border-color: transparent; box-shadow: none; }
 
 .solv-body {
   padding: 14px;
   overflow-y: auto;
-  background:
-    radial-gradient(680px 240px at 50% -110px, rgba(255,255,255,.80), rgba(255,255,255,0)),
-    var(--sv-bg);
+  background: #ffffff;
 }
 .solv-collapsed .solv-body, .solv-collapsed .solv-foot { display: none; }
 
 /* prominent final answer */
 .solv-final {
   margin-bottom: 12px; padding: 13px 15px; border-radius: 18px;
-  background: var(--sv-edge);
-  border: 0;
-  box-shadow: var(--sv-shadow-soft);
+  background: #ffffff;
+  border: 1px solid rgba(15,23,42,.08);
+  box-shadow: none;
   animation: solv-pop .18s cubic-bezier(.2,.9,.3,1.2);
   position: relative;
   overflow: hidden;
 }
-.solv-final::before, .solv-error-card::before, .solv-reason::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.92);
-}
+.solv-final::before, .solv-error-card::before, .solv-reason::before { content: none; }
 .solv-final-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; gap: 8px; }
 .solv-final-label { font-size: 10px; text-transform: uppercase; letter-spacing: .14em; font-weight: 800;
   color: var(--sv-accent); }
@@ -142,7 +147,7 @@
 /* multiple-choice answer */
 .solv-choice { display: flex; align-items: center; gap: 12px; }
 .solv-choice-badge { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center;
-  font-size: 22px; font-weight: 800; color: #fff; background: var(--sv-accent); box-shadow: 0 10px 24px rgba(0,112,224,.18); }
+  font-size: 22px; font-weight: 800; color: #fff; background: var(--sv-accent); box-shadow: none; }
 .solv-choice-text { font-size: 15px; font-weight: 600; color: var(--sv-ink); line-height: 1.4; }
 
 /* provider/model meta + verify line */
@@ -151,7 +156,7 @@
 .solv-verify:empty { margin: 0; }
 
 /* collapsible reasoning */
-.solv-reason { border: 0; border-radius: 16px; overflow: hidden; background: var(--sv-edge); box-shadow: var(--sv-shadow-soft); position: relative; }
+.solv-reason { border: 0; border-radius: 16px; overflow: hidden; background: #f7f9fb; box-shadow: none; position: relative; }
 .solv-reason summary {
   cursor: pointer; padding: 9px 12px; font-size: 12px; font-weight: 600; color: var(--sv-mut);
   list-style: none; user-select: none;
@@ -171,14 +176,14 @@
 }
 .solv-answer hr { border: none; height: 1px; background: linear-gradient(90deg, transparent, rgba(15,23,42,.10), transparent); margin: 8px 0; }
 .solv-answer em { color: var(--sv-mut); }
-.solv-table { border-collapse: separate; border-spacing: 0; width: 100%; margin: 8px 0; font-size: 12.5px; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--sv-line); }
+.solv-table { border-collapse: separate; border-spacing: 0; width: 100%; margin: 8px 0; font-size: 12.5px; border-radius: 12px; overflow: hidden; border: 0; box-shadow: none; }
 .solv-table th, .solv-table td { border: 0; padding: 6px 8px; text-align: left; }
-.solv-table tr + tr td { box-shadow: inset 0 1px 0 rgba(15,23,42,.055); }
+.solv-table tr:nth-child(even) td { background: rgba(238,244,249,.52); }
 .solv-table th { background: var(--sv-panel-2); color: var(--sv-ink); font-weight: 600; }
 
 .solv-question {
   font-size: 12px; color: var(--sv-mut); margin-bottom: 10px;
-  max-height: 54px; overflow: hidden; padding-left: 10px; box-shadow: inset 2px 0 0 rgba(0,112,224,.16);
+  max-height: 54px; overflow: hidden; padding-left: 10px; border-left: 0; box-shadow: none;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
 .solv-question.has-image { display: block; max-height: none; -webkit-line-clamp: unset; }
@@ -190,9 +195,9 @@
 .solv-question-image span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .solv-answer { white-space: normal; word-wrap: break-word; }
 .solv-answer strong { color: var(--sv-ink); }
-.solv-answer code { background: var(--sv-panel-2); border: 0; box-shadow: inset 0 0 0 1px var(--sv-line); padding: 1px 5px; border-radius: 9px; font-size: 12.5px; color: var(--sv-ink); }
+.solv-answer code { background: var(--sv-panel-2); border: 0; box-shadow: none; padding: 1px 5px; border-radius: 9px; font-size: 12.5px; color: var(--sv-ink); }
 .solv-answer pre {
-  background: var(--sv-panel-2); border: 0; box-shadow: inset 0 0 0 1px var(--sv-line); border-radius: 14px;
+  background: var(--sv-panel-2); border: 0; box-shadow: none; border-radius: 14px;
   padding: 10px; overflow-x: auto; font-size: 12.5px; margin: 8px 0;
   font-family: ui-monospace, Menlo, monospace;
 }
@@ -200,8 +205,8 @@
 .solv-err { color: var(--sv-bad); }
 
 /* friendly error card */
-.solv-error-card { border: 0; background: var(--sv-edge); border-radius: 16px; padding: 11px 13px; box-shadow: var(--sv-shadow-soft); position: relative; overflow: hidden; }
-.solv-error-title { font-weight: 700; color: var(--sv-bad); margin-bottom: 6px; }
+.solv-error-card { border: 0; background: #fff7f8; border-radius: 16px; padding: 11px 13px; box-shadow: none; position: relative; overflow: hidden; }
+.solv-error-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--sv-bad); margin-bottom: 6px; }
 .solv-error-steps { margin: 0 0 9px; padding-left: 18px; color: var(--sv-mut); }
 .solv-error-steps li { margin: 3px 0; }
 .solv-error-actions { display: flex; gap: 8px; align-items: center; }
@@ -214,7 +219,7 @@
 @keyframes solv-bounce { 0%,80%,100% { transform: translateY(0); opacity: .4; } 40% { transform: translateY(-4px); opacity: 1; } }
 
 /* confidence */
-.solv-conf { margin-top: 14px; padding-top: 12px; box-shadow: inset 0 1px 0 rgba(15,23,42,.055); }
+.solv-conf { margin-top: 14px; padding-top: 12px; border-top: 0; box-shadow: none; }
 .solv-conf-row { display: flex; justify-content: space-between; align-items: baseline; }
 .solv-conf-label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--sv-mut); }
 .solv-conf-num { font-weight: 700; font-size: 14px; }
@@ -223,17 +228,17 @@
 .solv-conf-fill[data-tone="warn"] { background: linear-gradient(90deg, #ffcf6b, #ff9f43); }
 .solv-conf-fill[data-tone="bad"] { background: linear-gradient(90deg, #ff8a8a, #ff6b7d); }
 .solv-verify { margin-top: 10px; font-size: 12.5px; }
-.solv-badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; }
+.solv-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; }
 .solv-badge.good { color: var(--sv-good); background: rgba(58,210,159,.12); }
 .solv-badge.bad { color: var(--sv-bad); background: rgba(255,107,125,.12); }
-.solv-second { margin-top: 8px; padding: 8px 10px; background: var(--sv-edge); border: 0; box-shadow: inset 0 0 0 1px var(--sv-line); border-radius: 14px; color: var(--sv-mut); }
+.solv-second { margin-top: 8px; padding: 8px 10px; background: #f7f9fb; border: 0; box-shadow: none; border-radius: 14px; color: var(--sv-mut); }
 .solv-second b { color: var(--sv-ink); }
 
 /* quiet icon action row (ChatGPT-style) */
 .solv-actions { display: flex; gap: 4px; margin-top: 12px; }
 .solv-act {
   background: transparent; border: none; color: var(--sv-mut); cursor: pointer;
-  width: 40px; height: 40px; border-radius: 999px; font-size: 14px; line-height: 1;
+  width: 44px; height: 44px; border-radius: 999px; font-size: 14px; line-height: 1;
   display: grid; place-items: center; transition: background-color .15s ease, color .15s ease, transform .1s ease;
 }
 @media (hover: hover) and (pointer: fine) { .solv-act:hover { background: rgba(15,23,42,.06); color: var(--sv-ink); } }
@@ -242,23 +247,23 @@
 /* footer: pill input + circular send */
 .solv-foot { display: flex; gap: 8px; align-items: center; padding: 10px 12px 12px; }
 .solv-followup {
-  flex: 1; background: var(--sv-edge); border: 0; color: var(--sv-ink);
+  flex: 1; background: #f7f9fb; border: 0; color: var(--sv-ink);
   border-radius: 999px; padding: 10px 16px; font-size: 16px; outline: none; font-family: inherit;
-  box-shadow: inset 0 0 0 1px var(--sv-line);
+  box-shadow: none;
 }
-.solv-followup:focus { box-shadow: inset 0 0 0 1px rgba(0,112,224,.42), 0 0 0 4px rgba(0,112,224,.10); }
+.solv-followup:focus { background: #ffffff; box-shadow: none; }
 .solv-followup::placeholder { color: var(--sv-mut); }
 .solv-send {
-  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
+  flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%; border: none; cursor: pointer;
   background: var(--sv-accent); color: #fff; font-size: 15px; font-weight: 700; line-height: 1;
-  display: grid; place-items: center; box-shadow: 0 10px 24px rgba(0,112,224,.18); transition: filter .15s ease, transform .1s ease;
+  display: grid; place-items: center; box-shadow: none; transition: filter .15s ease, transform .1s ease;
 }
 @media (hover: hover) and (pointer: fine) { .solv-send:hover { filter: brightness(1.08); } }
 .solv-send:active { transform: scale(.96); }
 .solv-btn {
-  background: var(--sv-edge); border: 0; color: var(--sv-ink);
+  background: #f4f7fa; border: 0; color: var(--sv-ink);
   border-radius: 999px; padding: 7px 12px; min-height: 34px; font-size: 12.5px; font-weight: 650; cursor: pointer; font-family: inherit;
-  box-shadow: var(--sv-shadow-soft);
+  box-shadow: none;
 }
 @media (hover: hover) and (pointer: fine) { .solv-btn:hover { background: var(--sv-panel-2); } }
 .solv-open-opts { margin-top: 4px; }
@@ -268,9 +273,9 @@
 .solv-region-hint {
   position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
   background: var(--sv-accent); color: #fff; font-size: 12.5px; font-weight: 600;
-  padding: 7px 14px; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  padding: 7px 14px; border-radius: 999px; box-shadow: none;
 }
-.solv-rect { position: fixed; border: 2px solid var(--sv-accent); background: rgba(0,112,224,.12); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(8,10,16,.25); }
+.solv-rect { position: fixed; border: 2px solid var(--sv-accent); background: rgba(0,112,224,.12); border-radius: 14px; }
 
 /* light theme + reduced motion */
 @media (prefers-reduced-motion: reduce) {

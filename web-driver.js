@@ -130,13 +130,31 @@
   // and confirm the composer actually cleared. Retry a few times (fixes Gemini
   // sometimes leaving the text sitting in the box).
   async function submit(cfg, el) {
+    const tryFormSubmit = () => {
+      const form = el.closest?.("form");
+      if (!form) return false;
+      try {
+        if (typeof form.requestSubmit === "function") form.requestSubmit();
+        else form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+        return true;
+      } catch { return false; }
+    };
+    const tryNearbyButton = () => {
+      const root = el.closest?.("form") || el.parentElement || document;
+      const buttons = [...(root.querySelectorAll?.("button") || [])].filter(sendEnabled);
+      const likely = buttons.find((b) => /send|submit|arrow|up/i.test(`${b.ariaLabel || ""} ${b.title || ""} ${b.textContent || ""}`)) || buttons.at(-1);
+      if (!likely) return false;
+      likely.click();
+      return true;
+    };
     for (let attempt = 0; attempt < 8; attempt++) {
       el.focus();
       el.dispatchEvent(new Event("input", { bubbles: true }));
       await sleep(180);
       const btn = pick(cfg.send);
       if (sendEnabled(btn)) btn.click();
-      else pressEnter(el);
+      else if (!tryNearbyButton() && !tryFormSubmit()) pressEnter(el);
+      if (attempt >= 3) pressEnter(el);
       await sleep(260);
       if (isEmpty(el)) return true;        // composer cleared → it sent
       if (pick(cfg.stop)) return true;      // a stop button appeared → it's responding

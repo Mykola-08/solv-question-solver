@@ -4,13 +4,22 @@ const $ = (id) => document.getElementById(id);
 const R = SOLV.render;
 const esc = R.escapeHtml;
 const escAttr = (s = "") => esc(String(s)).replace(/"/g, "&quot;");
+const icon = (name) => ({
+  x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="10" height="10" rx="2"/><rect x="5" y="5" width="10" height="10" rx="2"/></svg>',
+  check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>',
+  verify: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 12 2 2 4-5"/><path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M21 4v6h-6"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>'
+}[name] || "");
 
 let settings = null;
 let mode = "short";
 let attached = null; // dataURL
 const history = []; // {role, content} for context
 const MAX_STORED_IMAGE = 4_000_000;
+const MAX_HISTORY_MESSAGES = 12;
 const isImageDataUrl = (url) => /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(url || "") && url.length <= MAX_STORED_IMAGE;
+const supportFor = (provider) => SOLV.providerSupport(provider, SOLV.browserInfo());
 
 async function load() {
   settings = await new Promise((res) => chrome.runtime.sendMessage({ type: "getSettings" }, res));
@@ -43,6 +52,7 @@ function restoreHandoff(h) {
     addUser(h.question || "Image question", isImageDataUrl(h.image) ? h.image : null);
     if (h.answer) { const card = addAnswerCard(); finalizeCard(card, h.answer, true); }
     for (const m of (h.messages || [])) if (m.role !== "system") history.push(m);
+    trimHistory();
     // brief banner so it's clear the conversation moved here
     const note = document.createElement("div");
     note.className = "msg"; note.innerHTML = `<div class="status" style="text-align:center">Continued from the page. Ask a follow-up below.</div>`;
@@ -66,9 +76,21 @@ function buildProvider() {
   $("provider").innerHTML = SOLV.PROVIDER_GROUPS.map((g) => {
     const items = g.items.filter((p) => !allow.length || allow.includes(p) || p === settings.provider);
     return items.length ? `<optgroup label="${escAttr(g.label)}">` +
-      items.map((p) => `<option value="${escAttr(p)}"${p === settings.provider ? " selected" : ""}>${esc(SOLV.PROVIDER_LABELS[p])}</option>`).join("") +
+      items.map((p) => {
+        const support = supportFor(p);
+        const label = `${SOLV.PROVIDER_LABELS[p]}${support.ok ? "" : " — unsupported"}`;
+        return `<option value="${escAttr(p)}"${p === settings.provider ? " selected" : ""}${support.ok ? "" : " disabled"} title="${escAttr(support.reason || support.warn || "")}">${esc(label)}</option>`;
+      }).join("") +
       `</optgroup>` : "";
   }).join("");
+  if ($("provider").selectedOptions[0]?.disabled) {
+    const first = [...$("provider").options].find((o) => !o.disabled);
+    if (first) {
+      settings.provider = first.value;
+      $("provider").value = first.value;
+      save();
+    }
+  }
   $("provider").onchange = (e) => { settings.provider = e.target.value; save(); buildModel(); updateHint(); updateEmptySetupCue(); };
 }
 function buildModel() {
@@ -93,9 +115,14 @@ function buildModes() {
 }
 function updateHint() {
   const p = settings.provider;
+  const support = supportFor(p);
+  if (!support.ok) {
+    $("hint").textContent = support.reason;
+    return;
+  }
   $("hint").textContent = SOLV.WEB_PROVIDERS.has(p)
     ? `Uses your logged-in ${SOLV.PROVIDER_LABELS[p].split(" ")[0]} tab. Keep it open and signed in. Image upload is best-effort.`
-    : settings.keys?.[p] || !["openai", "anthropic", "gemini"].includes(p)
+    : settings.keys?.[p] || !["openai", "openrouter", "custom_openai", "anthropic", "gemini"].includes(p) || (p === "custom_openai" && settings.customOpenAI?.baseUrl)
       ? (SOLV.VISION_PROVIDERS.has(p) ? "Tip: attach or paste an image for diagram/handwriting questions." : "")
       : "Add and test this provider in Settings before solving.";
 }
@@ -103,12 +130,18 @@ function updateEmptySetupCue() {
   const el = $("emptyHint");
   if (!el || !settings) return;
   const p = settings.provider;
-  const needsKey = ["openai", "anthropic", "gemini"].includes(p) && !settings.keys?.[p];
+  const needsKey = ["openai", "openrouter", "anthropic", "gemini"].includes(p) && !settings.keys?.[p];
+  const needsCustom = p === "custom_openai" && !settings.customOpenAI?.baseUrl;
   el.textContent = needsKey
     ? `${SOLV.PROVIDER_LABELS[p]} is selected. Add and test its key in Settings, or switch to a login/local provider.`
+    : needsCustom
+      ? "Custom provider is selected. Add its endpoint, model, key/auth format, and grant endpoint access in Settings."
     : "Ask here, paste a screenshot, attach an image, or solve selected text on any page.";
 }
 const save = () => chrome.storage.local.set({ settings });
+async function refreshSettings() {
+  settings = await new Promise((res) => chrome.runtime.sendMessage({ type: "getSettings" }, res));
+}
 $("gear").onclick = () => chrome.runtime.openOptionsPage();
 
 // ---------- attachments ----------
@@ -149,7 +182,7 @@ async function setAttached(url) {
     return;
   }
   attached = normalized;
-  $("attachWrap").innerHTML = `<span class="attach-chip"><img src="${normalized}" alt="Attached image preview"/> image attached <button id="rm" aria-label="Remove attached image">✕</button></span>`;
+  $("attachWrap").innerHTML = `<span class="attach-chip"><img src="${normalized}" alt="Attached image preview"/> image attached <button id="rm" aria-label="Remove attached image">${icon("x")}</button></span>`;
   $("rm").onclick = () => { attached = null; $("attachWrap").innerHTML = ""; };
 }
 
@@ -239,7 +272,12 @@ let busy = false;
 async function send() {
   const text = input.value.trim();
   if ((!text && !attached) || busy) return;
-  if (!hasCreds()) { addError({ title: `Add a key for ${SOLV.PROVIDER_LABELS[settings.provider]}`, steps: ["Open Settings (⚙) and paste your API key.", "Or switch to a login / Ollama / Chrome AI provider."], action: "options" }); return; }
+  if (!hasCreds()) {
+    addError(settings.provider === "custom_openai"
+      ? { title: "Configure custom provider", steps: ["Open Settings and add the custom endpoint base URL.", "Add a model id and key/auth header if your provider requires one.", "Grant endpoint access, then test the provider."], action: "options" }
+      : { title: `Add a key for ${SOLV.PROVIDER_LABELS[settings.provider]}`, steps: ["Open Settings and paste your API key.", "Or switch to a login / Ollama / Chrome AI provider."], action: "options" });
+    return;
+  }
 
   $("empty")?.remove();
   chrome.storage.local.remove("solvHandoff"); // consumed — don't replay on reopen
@@ -249,18 +287,24 @@ async function send() {
   attached = null; $("attachWrap").innerHTML = "";
 
   const messages = [{ role: "system", content: SOLV.buildSystem(mode, settings.modePrompts) }, ...history, { role: "user", content: qtext }];
-  const card = addAnswerCard();
+  const card = addAnswerCard(image);
   busy = true; $("send").disabled = true;
   let acc = "";
   const controller = new AbortController();
   try {
     await runSolve({ messages, image, signal: controller.signal, onToken: (t) => { acc += t; card.live.innerHTML = R.md(R.stripConfidence(acc)); scroll(); } });
+    await refreshSettings();
     history.push({ role: "user", content: qtext }, { role: "assistant", content: acc });
+    trimHistory();
     finalizeCard(card, acc, false, { image, question: qtext });
   } catch (e) {
+    await refreshSettings();
     card.wrap.remove();
     addError(SOLV.friendlyError(String(e.message || e), settings.provider));
   } finally { busy = false; $("send").disabled = false; scroll(); }
+}
+function trimHistory() {
+  if (history.length > MAX_HISTORY_MESSAGES) history.splice(0, history.length - MAX_HISTORY_MESSAGES);
 }
 
 function addUser(text, image) {
@@ -269,17 +313,24 @@ function addUser(text, image) {
   d.innerHTML = `<div class="bubble-user">${R.escapeHtml(text)}${image ? `<img src="${image}"/>` : ""}</div>`;
   $("convo").appendChild(d); scroll();
 }
-function addAnswerCard() {
+function addAnswerCard(image = null) {
   const wrap = document.createElement("div");
   wrap.className = "msg";
   wrap.innerHTML = `<div class="ans">
     <div class="final" hidden></div>
     <div class="live"></div>
     <div class="verify"></div>
-    <div class="status"><span class="dots"><i></i><i></i><i></i></span> ${SOLV.WEB_PROVIDERS.has(settings.provider) ? "using your logged-in session…" : "thinking…"}</div>
+    <div class="status"><span class="dots"><i></i><i></i><i></i></span> ${waitMessage(image)}</div>
   </div>`;
   $("convo").appendChild(wrap);
   return { wrap, final: wrap.querySelector(".final"), live: wrap.querySelector(".live"), status: wrap.querySelector(".status"), verify: wrap.querySelector(".verify") };
+}
+function waitMessage(image = null) {
+  if (!SOLV.WEB_PROVIDERS.has(settings.provider)) return "thinking…";
+  const memory = settings.providerMemory?.[settings.provider];
+  if (memory?.imageUploadFailed && image) return "image upload failed before in this browser — trying again…";
+  if (memory?.sendFailed) return "this site was hard to send to before — trying fallback send routes…";
+  return "using your logged-in session…";
 }
 const confBadge = (c) => c == null ? "" : `<span class="cbadge" data-tone="${R.confTone(c)}">${c}%</span>`;
 function finalizeCard(card, acc, skipVerify, context = {}) {
@@ -297,15 +348,15 @@ function finalizeCard(card, acc, skipVerify, context = {}) {
   const actions = document.createElement("div");
   actions.className = "ans-actions";
   actions.innerHTML = `
-    <button class="ans-act" title="Copy answer" aria-label="Copy answer">⧉</button>
-    <button class="ans-act" title="Double-check independently" aria-label="Double-check independently">✓✓</button>`;
+    <button class="ans-act" title="Copy answer" aria-label="Copy answer">${icon("copy")}</button>
+    <button class="ans-act" title="Double-check independently" aria-label="Double-check independently">${icon("verify")}</button>`;
   card.live.appendChild(actions);
   const [copyBtn, verifyBtn] = actions.querySelectorAll("button");
   copyBtn.addEventListener("click", async () => {
     await navigator.clipboard.writeText(R.stripConfidence(acc));
-    const old = copyBtn.textContent;
-    copyBtn.textContent = "✓";
-    setTimeout(() => (copyBtn.textContent = old), 1200);
+    const old = copyBtn.innerHTML;
+    copyBtn.innerHTML = icon("check");
+    setTimeout(() => (copyBtn.innerHTML = old), 1200);
   });
   verifyBtn.addEventListener("click", () => verify(card, acc, context));
   if (!skipVerify && r.confidence != null && settings.autoVerify && r.confidence < (settings.confidenceThreshold ?? 70)) verify(card, acc, context);
@@ -323,21 +374,28 @@ async function verify(card, original, context = {}) {
     });
     const norm = (s) => R.stripConfidence(s).split("\n").map((l) => l.trim()).filter(Boolean)[0]?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
     const agree = norm(original) && norm(original) === norm(second);
-    v.innerHTML = agree ? `<span class="badge good">✓ Verified — attempts agree</span>`
-      : `<span class="badge bad">⚠ Attempts disagree — review</span><div class="reason-body" style="margin-top:6px">${R.md(R.stripConfidence(second))}</div>`;
+    v.innerHTML = agree ? `<span class="badge good">${icon("check")} Verified — attempts agree</span>`
+      : `<span class="badge bad">${icon("alert")} Attempts disagree — review</span><div class="reason-body" style="margin-top:6px">${R.md(R.stripConfidence(second))}</div>`;
   } catch (e) { v.innerHTML = `<span class="status">verify failed.</span>`; }
 }
 function addError(help) {
   $("empty")?.remove();
   const d = document.createElement("div"); d.className = "msg";
   const steps = (help.steps || []).map((s) => `<li>${R.escapeHtml(s)}</li>`).join("");
-  d.innerHTML = `<div class="err"><div class="t">⚠ ${R.escapeHtml(help.title || "Error")}</div><ol>${steps}</ol>
+  d.innerHTML = `<div class="err"><div class="t">${icon("alert")} ${R.escapeHtml(help.title || "Error")}</div><ol>${steps}</ol>
     <div class="row">${help.action === "options" ? `<button class="mode" id="eopts">Open settings</button>` : ""}</div></div>`;
   $("convo").appendChild(d);
   d.querySelector("#eopts")?.addEventListener("click", () => chrome.runtime.openOptionsPage());
   scroll();
 }
-const hasCreds = () => settings.provider === "openai" ? !!settings.keys.openai : settings.provider === "anthropic" ? !!settings.keys.anthropic : settings.provider === "gemini" ? !!settings.keys.gemini : true;
+const hasCreds = () => {
+  if (settings.provider === "openai") return !!settings.keys.openai;
+  if (settings.provider === "openrouter") return !!settings.keys.openrouter;
+  if (settings.provider === "custom_openai") return !!settings.customOpenAI?.baseUrl;
+  if (settings.provider === "anthropic") return !!settings.keys.anthropic;
+  if (settings.provider === "gemini") return !!settings.keys.gemini;
+  return true;
+};
 const scroll = () => { const c = $("convo"); c.scrollTop = c.scrollHeight; };
 
 load();

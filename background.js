@@ -81,8 +81,16 @@ function buildWebPrompt(messages) {
 
 export const DEFAULTS = {
   provider: "openai",
-  keys: { openai: "", anthropic: "", gemini: "" },
+  keys: { openai: "", openrouter: "", anthropic: "", gemini: "", custom_openai: "" },
   models: { ...DEFAULT_MODELS },
+  customOpenAI: {
+    name: "Custom provider",
+    baseUrl: "https://api.openai.com/v1",
+    key: "",
+    model: DEFAULT_MODELS.custom_openai,
+    authHeader: "Authorization",
+    authPrefix: "Bearer"
+  },
   ollamaUrl: "http://localhost:11434",
   confidenceThreshold: 70,
   autoVerify: true,
@@ -91,6 +99,7 @@ export const DEFAULTS = {
   webFocusTab: false,   // briefly focus the AI tab while solving (guaranteed capture, but steals focus)
   visibleProviders: [],   // [] = show all
   visibleModes: [],       // [] = show all
+  providerMemory: {},
   overlay: {
     compact: true,        // hide provider/model/mode controls behind the ⚙ by default
     showModel: true, showModes: true, showConf: true,
@@ -100,11 +109,34 @@ export const DEFAULTS = {
 };
 
 async function getSettings() {
-  const stored = await chrome.storage.local.get("settings");
+  const stored = await chrome.storage.local.get(["settings", "providerMemory"]);
   return { ...DEFAULTS, ...(stored.settings || {}),
     keys: { ...DEFAULTS.keys, ...(stored.settings?.keys || {}) },
     models: { ...DEFAULTS.models, ...(stored.settings?.models || {}) },
+    customOpenAI: { ...DEFAULTS.customOpenAI, ...(stored.settings?.customOpenAI || {}) },
+    providerMemory: { ...(stored.providerMemory || stored.settings?.providerMemory || {}) },
     overlay: { ...DEFAULTS.overlay, ...(stored.settings?.overlay || {}) } };
+}
+
+async function rememberProviderFailure(provider, error) {
+  if (!isWebProvider(provider)) return;
+  const { providerMemory = {} } = await chrome.storage.local.get("providerMemory");
+  const msg = String(error || "");
+  providerMemory[provider] = {
+    lastError: msg.slice(0, 240),
+    lastFailedAt: Date.now(),
+    imageUploadFailed: /attach|image|file input|drop|paste/i.test(msg),
+    sendFailed: /send|trigger|composer|chat box|response detected/i.test(msg)
+  };
+  await chrome.storage.local.set({ providerMemory });
+}
+
+async function rememberProviderSuccess(provider) {
+  if (!isWebProvider(provider)) return;
+  const { providerMemory = {} } = await chrome.storage.local.get("providerMemory");
+  if (!providerMemory[provider]) return;
+  providerMemory[provider] = { ...providerMemory[provider], lastSuccessAt: Date.now(), imageUploadFailed: false, sendFailed: false };
+  await chrome.storage.local.set({ providerMemory });
 }
 
 async function testProviderConnection(provider, overrides = {}) {
@@ -112,14 +144,43 @@ async function testProviderConnection(provider, overrides = {}) {
   const settings = { ...current, ...overrides };
   settings.keys = { ...current.keys, ...(overrides.keys || {}) };
   settings.models = { ...current.models, ...(overrides.models || {}) };
+  settings.customOpenAI = { ...current.customOpenAI, ...(overrides.customOpenAI || {}) };
   const key = settings.keys?.[provider];
-  if (["openai", "anthropic", "gemini"].includes(provider) && !key) {
+  if (["openai", "openrouter", "anthropic", "gemini"].includes(provider) && !key) {
     throw new Error(`Add a ${provider} API key first.`);
   }
   if (provider === "openai") {
     const res = await fetch("https://api.openai.com/v1/models", { headers: { Authorization: `Bearer ${key}` } });
     if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 180) || res.statusText}`);
     return "OpenAI key accepted.";
+  }
+  if (provider === "openrouter") {
+    const res = await fetch("https://openrouter.ai/api/v1/models", { headers: { Authorization: `Bearer ${key}` } });
+    if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 180) || res.statusText}`);
+    return "OpenRouter key accepted.";
+  }
+  if (provider === "custom_openai") {
+    const cfg = settings.customOpenAI || {};
+    const base = String(cfg.baseUrl || "").trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
+    if (!/^https?:\/\//i.test(base)) throw new Error("Enter a custom endpoint starting with http:// or https://.");
+    const model = settings.models?.custom_openai || cfg.model || DEFAULT_MODELS.custom_openai;
+    const header = String(cfg.authHeader || "Authorization").trim() || "Authorization";
+    const prefix = String(cfg.authPrefix ?? "Bearer").trim();
+    const customKey = String(cfg.key || settings.keys?.custom_openai || "").trim();
+    const headers = { "Content-Type": "application/json" };
+    if (customKey) headers[header] = prefix ? `${prefix} ${customKey}` : customKey;
+    const res = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model,
+        stream: false,
+        max_tokens: 4,
+        messages: [{ role: "user", content: "ping" }]
+      })
+    });
+    if (!res.ok) throw new Error(`Custom provider ${res.status}: ${(await res.text()).slice(0, 180) || res.statusText}`);
+    return "Custom OpenAI-compatible endpoint accepted.";
   }
   if (provider === "anthropic") {
     const model = settings.models?.anthropic || DEFAULT_MODELS.anthropic;
@@ -183,8 +244,10 @@ chrome.runtime.onConnect.addListener((port) => {
       } else {
         await streamChat({ provider, settings, model, messages, image, signal: controller.signal, onToken });
       }
+      await rememberProviderSuccess(provider);
       try { port.postMessage({ type: "done" }); } catch {}
     } catch (e) {
+      try { await rememberProviderFailure(msg.payload?.provider, e?.message || e); } catch {}
       try { port.postMessage({ type: "error", error: String(e.message || e) }); } catch {}
     } finally {
       clearInterval(beat); keepaliveStop();
@@ -221,7 +284,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const tabId = sender.tab?.id;
     (async () => {
       try {
-        if (!chrome.sidePanel?.open) throw new Error("Side panel is unavailable in this Chrome version.");
+        if (!chrome.sidePanel?.open) {
+          await chrome.tabs.create({ url: chrome.runtime.getURL("sidepanel.html"), active: true });
+          sendResponse({ ok: true, fallback: "tab" });
+          return;
+        }
         if (tabId != null) await chrome.sidePanel.open({ tabId });
         else {
           const w = await chrome.windows.getCurrent();

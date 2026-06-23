@@ -9,6 +9,17 @@
   const renderMd = R.md;
   const parseConfidence = R.parseConfidence;
   const stripConfidence = R.stripConfidence;
+  const icon = (name) => ({
+    settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M2 14h4"/><path d="M10 8h4"/><path d="M18 16h4"/></svg>',
+    panel: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/><path d="M14 9h3"/><path d="M14 13h3"/></svg>',
+    x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="10" height="10" rx="2"/><rect x="5" y="5" width="10" height="10" rx="2"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M3 12a9 9 0 0 1 15.5-6.2"/><path d="M18 2v4h-4"/><path d="M6 22v-4h4"/></svg>',
+    verify: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 12 2 2 4-5"/><path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M21 4v6h-6"/></svg>',
+    send: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></svg>',
+    check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>'
+  }[name] || "");
 
   let settings = null;
   const getSettings = () =>
@@ -71,6 +82,10 @@
   // ---------- selection pill ----------
   let pill = null;
   const removePill = () => { pill?.remove(); pill = null; };
+  const rectToAnchor = (rect) => ({
+    left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom,
+    width: rect.width, height: rect.height
+  });
   function showPill(rect, text) {
     removePill();
     pill = document.createElement("div");
@@ -78,7 +93,8 @@
     pill.innerHTML = `<span class="solv-pill-glyph">S</span> Solve`;
     pill.style.top = `${window.scrollY + rect.bottom + 8}px`;
     pill.style.left = `${window.scrollX + rect.left}px`;
-    pill.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); removePill(); solveText(text); });
+    const anchor = rectToAnchor(rect);
+    pill.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); removePill(); solveText(text, anchor); });
     document.body.appendChild(pill);
   }
   document.addEventListener("mouseup", (e) => {
@@ -152,9 +168,9 @@
       <div class="solv-head">
         <div class="solv-brand"><span class="solv-logo">S</span> Solv</div>
         <div class="solv-head-actions">
-          <button class="solv-icon solv-tune" title="Provider / model / mode" aria-label="Provider, model, and mode">⚙</button>
-          <button class="solv-icon solv-side" title="Continue in side panel chat" aria-label="Continue in side panel chat">⇥</button>
-          <button class="solv-icon solv-close" title="Close (Esc)" aria-label="Close">✕</button>
+          <button class="solv-icon solv-tune" title="Provider / model / mode" aria-label="Provider, model, and mode">${icon("settings")}</button>
+          <button class="solv-icon solv-side" title="Continue in side panel chat" aria-label="Continue in side panel chat">${icon("panel")}</button>
+          <button class="solv-icon solv-close" title="Close (Esc)" aria-label="Close">${icon("x")}</button>
         </div>
       </div>
       <div class="solv-controls">
@@ -173,14 +189,14 @@
         <div class="solv-verify"></div>
         <div class="solv-status"></div>
         <div class="solv-actions" hidden>
-          <button class="solv-act solv-copy" title="Copy answer" aria-label="Copy answer">⧉</button>
-          <button class="solv-act solv-regen" title="Regenerate" aria-label="Regenerate answer">↻</button>
-          <button class="solv-act solv-reverify" title="Double-check independently" aria-label="Double-check independently">✓✓</button>
+          <button class="solv-act solv-copy" title="Copy answer" aria-label="Copy answer">${icon("copy")}</button>
+          <button class="solv-act solv-regen" title="Regenerate" aria-label="Regenerate answer">${icon("refresh")}</button>
+          <button class="solv-act solv-reverify" title="Double-check independently" aria-label="Double-check independently">${icon("verify")}</button>
         </div>
       </div>
       <div class="solv-foot">
         <input class="solv-followup" placeholder="Ask a follow-up…" />
-        <button class="solv-send" title="Send" aria-label="Send follow-up">↑</button>
+        <button class="solv-send" title="Send" aria-label="Send follow-up">${icon("send")}</button>
       </div>`;
     document.body.appendChild(panel);
 
@@ -195,7 +211,7 @@
     panel.querySelector(".solv-close").onclick = closePanel;
     panel.querySelector(".solv-tune").onclick = () => { panel.classList.toggle("solv-controls-open"); syncControlsAccessibility(); };
     panel.querySelector(".solv-side").onclick = () => delegateToSide();
-    panel.querySelector(".solv-copy").onclick = () => { navigator.clipboard.writeText(stripConfidence(state.answer || "")); flash(panel.querySelector(".solv-copy"), "✓"); };
+    panel.querySelector(".solv-copy").onclick = () => { navigator.clipboard.writeText(stripConfidence(state.answer || "")); flash(panel.querySelector(".solv-copy"), icon("check")); };
     panel.querySelector(".solv-reverify").onclick = () => verify(true);
     panel.querySelector(".solv-regen").onclick = () => { if (state.lastQuestion || state.lastImage) restart(); };
     const send = () => { const fuEl = panel.querySelector(".solv-followup"); if (fuEl.value.trim()) { const q = fuEl.value.trim(); fuEl.value = ""; followUp(q); } };
@@ -217,14 +233,42 @@
     });
     panel.querySelector(".solv-followup").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); send(); } });
     makeDraggable(panel, panel.querySelector(".solv-head"));
-    chrome.storage.local.get("panelPos").then(({ panelPos }) => {
-      if (panelPos) { panel.style.right = "auto"; panel.style.left = panelPos.left + "px"; panel.style.top = panelPos.top + "px"; }
-    });
     refreshModelSelect();
     applyOverlayPrefs();
     return panel;
   }
-  const flash = (btn, label) => { const old = btn.textContent; btn.textContent = label; setTimeout(() => (btn.textContent = old), 1200); };
+  async function placePanel(anchor) {
+    const { panelPos } = await chrome.storage.local.get("panelPos");
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const r = panel.getBoundingClientRect();
+    const margin = 12;
+    if (panelPos) {
+      const left = Math.max(margin, Math.min(vw - r.width - margin, panelPos.left));
+      const top = Math.max(margin, Math.min(vh - r.height - margin, panelPos.top));
+      panel.style.right = "auto";
+      panel.style.left = Math.round(left) + "px";
+      panel.style.top = Math.round(top) + "px";
+      return;
+    }
+    const gap = 12;
+    const a = anchor || {
+      left: vw - r.width - 20,
+      right: vw - 20,
+      top: 20,
+      bottom: 60,
+      width: r.width,
+      height: 40
+    };
+    const fitsRight = a.right + gap + r.width <= vw - margin;
+    const fitsLeft = a.left - gap - r.width >= margin;
+    const left = fitsRight ? a.right + gap : fitsLeft ? a.left - gap - r.width : Math.max(margin, Math.min(vw - r.width - margin, a.left));
+    const top = Math.max(margin, Math.min(vh - r.height - margin, a.top + (a.height || 0) / 2 - r.height / 2));
+    panel.style.right = "auto";
+    panel.style.left = Math.round(left) + "px";
+    panel.style.top = Math.round(top) + "px";
+  }
+  const flash = (btn, label) => { const old = btn.innerHTML; btn.innerHTML = label; setTimeout(() => (btn.innerHTML = old), 1200); };
   function makeDraggable(el, handle) {
     let sx, sy, ox, oy, drag = false;
     handle.addEventListener("mousedown", (e) => {
@@ -235,20 +279,29 @@
     });
     window.addEventListener("mousemove", (e) => { if (!drag) return; el.style.left = `${ox + e.clientX - sx}px`; el.style.top = `${oy + e.clientY - sy}px`; });
     window.addEventListener("mouseup", () => {
-      if (drag) { const r = el.getBoundingClientRect(); chrome.storage.local.set({ panelPos: { left: Math.round(r.left), top: Math.round(r.top) } }); }
+      if (drag) {
+        const r = el.getBoundingClientRect();
+        const left = Math.max(8, Math.min(window.innerWidth - r.width - 8, r.left));
+        const top = Math.max(8, Math.min(window.innerHeight - r.height - 8, r.top));
+        el.style.left = Math.round(left) + "px";
+        el.style.top = Math.round(top) + "px";
+        chrome.storage.local.set({ panelPos: { left: Math.round(left), top: Math.round(top) } });
+      }
       drag = false; document.body.style.userSelect = "";
     });
   }
 
   // ---------- state ----------
-  const state = { messages: [], answer: "", image: null, busy: false, abort: null, mode: "short", lastQuestion: null, lastImage: null, runId: 0 };
+  const state = { messages: [], answer: "", image: null, busy: false, abort: null, mode: "short", lastQuestion: null, lastImage: null, runId: 0, anchor: null };
   const abortCurrent = () => { try { state.abort?.(); } catch {} state.abort = null; };
-  const restart = () => startSolve({ questionText: state.lastQuestion, image: state.lastImage });
+  const restart = () => startSolve({ questionText: state.lastQuestion, image: state.lastImage, anchor: state.anchor });
 
-  async function startSolve({ questionText, image }) {
+  async function startSolve({ questionText, image, anchor }) {
     settings = await getSettings();
     if (!hasCredsFor(settings)) { openOptionsHint(); return; }
     makePanel(); panel.classList.remove("solv-collapsed");
+    state.anchor = anchor || state.anchor;
+    await placePanel(state.anchor);
     syncToolbar();
     state.lastQuestion = questionText || null; state.lastImage = image || null;
     const qEl = panel.querySelector(".solv-question");
@@ -281,7 +334,7 @@
     finalEl.hidden = true; finalEl.innerHTML = ""; ansEl.innerHTML = ""; verifyEl.innerHTML = "";
     const act = panel.querySelector(".solv-actions"); if (act) act.hidden = true;
     const waitMsg = SOLV.WEB_PROVIDERS.has(settings.provider)
-      ? (state.image ? "attaching image in your logged-in session…" : "asking your logged-in session…")
+      ? webProviderWaitMessage()
       : "thinking…";
     statusEl.innerHTML = `<span class="solv-dots"><i></i><i></i><i></i></span> ${waitMsg}`;
     let aborted = false; state.abort = () => { aborted = true; controller.abort(); };
@@ -290,14 +343,22 @@
         if (aborted || runId !== state.runId) return; state.answer += t; ansEl.innerHTML = renderMd(stripConfidence(state.answer));
       } });
       if (aborted || runId !== state.runId) return;
+      settings = await getSettings();
       statusEl.textContent = "";
       state.messages.push({ role: "assistant", content: state.answer });
       renderStructured(finalEl, ansEl);
       maybeAutoVerify();
     } catch (e) {
       if (String(e.message || e) === "aborted") return;
+      settings = await getSettings();
       showError(String(e.message || e), SOLV.friendlyError(String(e.message || e), settings.provider));
     } finally { if (runId === state.runId) state.busy = false; }
+  }
+  function webProviderWaitMessage() {
+    const memory = settings.providerMemory?.[settings.provider];
+    if (memory?.imageUploadFailed && state.image) return "image upload failed before in this browser — trying text plus image again…";
+    if (memory?.sendFailed) return "this site was hard to send to before — trying the saved fallback route…";
+    return state.image ? "attaching image in your logged-in session…" : "asking your logged-in session…";
   }
 
   function confBadge(conf) {
@@ -343,8 +404,8 @@
       const agree = firstLine(original) && firstLine(original) === firstLine(second);
       const c2 = parseConfidence(second);
       vEl.innerHTML = agree
-        ? `<span class="solv-badge good">✓ Double-checked — both attempts agree${c2 != null ? ` · ${c2}%` : ""}</span>`
-        : `<span class="solv-badge bad">⚠ Attempts disagree — review</span><details class="solv-reason"><summary>See 2nd attempt</summary><div class="solv-reason-body">${renderMd(stripConfidence(second))}</div></details>`;
+        ? `<span class="solv-badge good">${icon("check")} Double-checked — both attempts agree${c2 != null ? ` · ${c2}%` : ""}</span>`
+        : `<span class="solv-badge bad">${icon("alert")} Attempts disagree — review</span><details class="solv-reason"><summary>See 2nd attempt</summary><div class="solv-reason-body">${renderMd(stripConfidence(second))}</div></details>`;
     } catch (e) { vEl.innerHTML = `<span class="solv-err">re-check failed.</span>`; }
   }
   async function followUp(q) {
@@ -353,7 +414,7 @@
     state.lastQuestion = q; state.image = null; state.lastImage = null;
     await stream();
   }
-  const solveText = (text) => startSolve({ questionText: text });
+  const solveText = (text, anchor = null) => startSolve({ questionText: text, anchor });
 
   // Hand the current question/answer/conversation over to the side panel chat.
   function delegateToSide() {
@@ -392,7 +453,7 @@
     const steps = (help.steps || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("");
     statusEl.innerHTML = `
       <div class="solv-error-card">
-        <div class="solv-error-title">⚠ ${escapeHtml(help.title || "Error")}</div>
+        <div class="solv-error-title">${icon("alert")} ${escapeHtml(help.title || "Error")}</div>
         <ol class="solv-error-steps">${steps}</ol>
         <div class="solv-error-actions">
           <button class="solv-btn solv-retry">Retry</button>
@@ -426,8 +487,9 @@
       const x = Math.min(sx, e.clientX), y = Math.min(sy, e.clientY), w = Math.abs(e.clientX - sx), h = Math.abs(e.clientY - sy);
       cleanup();
       if (w < 8 || h < 8) return;
+      const anchor = { left: x, top: y, right: x + w, bottom: y + h, width: w, height: h };
       const image = await captureRegion(x, y, w, h);
-      if (image) startSolve({ image });
+      if (image) startSolve({ image, anchor });
       else {
         settings = settings || await getSettings();
         makePanel();
@@ -469,20 +531,29 @@
   // ---------- creds / hints ----------
   const hasCredsFor = (s) =>
     s.provider === "openai" ? !!s.keys.openai :
+    s.provider === "openrouter" ? !!s.keys.openrouter :
+    s.provider === "custom_openai" ? !!s.customOpenAI?.baseUrl :
     s.provider === "anthropic" ? !!s.keys.anthropic :
     s.provider === "gemini" ? !!s.keys.gemini : true;
   function openOptionsHint() {
     makePanel(); panel.classList.remove("solv-collapsed"); syncToolbar();
     panel.querySelector(".solv-question").textContent = "Setup needed";
     showError("missing key", {
-      title: `Add a key for ${SOLV.PROVIDER_LABELS[settings.provider]}`,
-      steps: ["Open Settings and paste the API key for this provider.", "Or switch (top-left) to a login / Ollama / Chrome AI provider — those need no key."],
+      title: settings.provider === "custom_openai" ? "Configure custom provider" : `Add a key for ${SOLV.PROVIDER_LABELS[settings.provider]}`,
+      steps: settings.provider === "custom_openai"
+        ? ["Open Settings and add the custom endpoint base URL.", "Add a model id and key/auth header if your provider requires one.", "Grant endpoint access, then Test the custom provider."]
+        : ["Open Settings and paste the API key for this provider.", "Or switch (top-left) to a login / Ollama / Chrome AI provider — those need no key."],
       action: "options"
     });
   }
 
   chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type === "trigger-selection") { const t = window.getSelection()?.toString().trim(); t ? solveText(t) : startRegion(); }
+    if (msg.type === "trigger-selection") {
+      const sel = window.getSelection();
+      const t = sel?.toString().trim();
+      const anchor = t && sel.rangeCount ? rectToAnchor(sel.getRangeAt(0).getBoundingClientRect()) : null;
+      t ? solveText(t, anchor) : startRegion();
+    }
     if (msg.type === "trigger-region") startRegion();
   });
   getSettings().then((s) => { settings = s; if (settings.defaultMode) state.mode = settings.defaultMode; });

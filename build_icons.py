@@ -8,8 +8,7 @@ import zlib
 OUT = os.path.join(os.path.dirname(__file__), "icons")
 os.makedirs(OUT, exist_ok=True)
 
-BLUE = (0, 112, 224)
-BLUE_DARK = (0, 72, 170)
+BLUE = (0, 109, 229)
 WHITE = (255, 255, 255)
 INK = (10, 24, 46)
 
@@ -58,15 +57,12 @@ def make(n):
     for y in range(n):
         rows.append(0)
         for x in range(n):
-            bg_t = (x * 0.35 + y * 0.65) / max(1, n - 1)
-            base = lerp(BLUE, BLUE_DARK, bg_t)
-            lift = max(0.0, 1.0 - math.hypot((x / n) - 0.28, (y / n) - 0.18) / 0.72)
-            base = lerp(base, (52, 151, 244), lift * 0.22)
+            base = BLUE
             mark = mark_alpha(x + 0.5, y + 0.5, n)
             color = lerp(base, WHITE, mark)
-            # A small dark pin inside the lower curve helps the mark hold at 16px.
+            # A tiny ink counter helps the S/check stay crisp at 16px.
             pin = max(0.0, 1.0 - math.hypot((x / n) - 0.61, (y / n) - 0.64) / 0.075)
-            color = lerp(color, INK, min(pin * 0.14, 0.14) * mark)
+            color = lerp(color, INK, min(pin * 0.10, 0.10) * mark)
             alpha = int(255 * rounded_alpha(x + 0.5, y + 0.5, n, radius))
             rows += bytes((color[0], color[1], color[2], alpha))
     return rows

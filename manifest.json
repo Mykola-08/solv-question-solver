@@ -7,6 +7,7 @@
   "permissions": ["storage", "activeTab", "scripting", "contextMenus", "tabs", "sidePanel"],
   "host_permissions": [
     "https://api.openai.com/*",
+    "https://openrouter.ai/*",
     "https://api.anthropic.com/*",
     "https://generativelanguage.googleapis.com/*",
     "http://localhost/*",
@@ -16,6 +17,7 @@
     "https://claude.ai/*",
     "https://gemini.google.com/*"
   ],
+  "optional_host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js", "type": "module" },
   "action": {
     "default_popup": "popup.html",

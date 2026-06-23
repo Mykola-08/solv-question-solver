@@ -21,32 +21,33 @@
 
   .top{display:flex;align-items:center;justify-content:space-between;padding:12px 14px}
   .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;letter-spacing:-.01em}
-  .brand .logo{width:22px;height:22px;border-radius:7px;background:var(--grad);display:grid;place-items:center;color:#fff;font-size:12px;box-shadow:0 8px 20px rgba(0,48,135,.18)}
+  .brand .logo{width:22px;height:22px;border-radius:7px;background:var(--grad);display:grid;place-items:center;color:#fff;font-size:12px}
   .brand .grad{color:var(--g1)}
-  .icon-btn{background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:14px;transition:color .15s ease,background-color .15s ease,transform .1s ease}
+  .icon{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .icon-btn{background:var(--panel2);border:0;color:var(--mut);border-radius:999px;width:46px;height:46px;cursor:pointer;font-size:14px;transition:color .15s ease,background-color .15s ease,transform .1s ease}
   @media (hover:hover) and (pointer:fine){.icon-btn:hover{color:var(--ink);background:#fff}}
   .icon-btn:active{transform:scale(.97)}
 
   .controls{display:flex;gap:8px;padding:0 14px 10px}
-  select{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 10px;font-size:16px;font-family:inherit;outline:none}
-  select:focus{border-color:var(--g1)}
+  select{flex:1;min-width:0;background:var(--panel2);border:0;color:var(--ink);border-radius:16px;padding:11px 12px;font-size:16px;font-family:inherit;outline:none}
+  select:focus{background:#fff}
   .modes{display:flex;gap:5px;padding:0 14px 12px;flex-wrap:wrap}
-  .mode{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:7px 8px;font-size:11.5px;font-weight:650;cursor:pointer;font-family:inherit;transition:background-color .15s ease,color .15s ease,border-color .15s ease,transform .1s ease;min-width:60px;min-height:32px}
+  .mode{flex:1;background:var(--panel2);border:0;color:var(--mut);border-radius:999px;padding:8px 10px;font-size:11.5px;font-weight:650;cursor:pointer;font-family:inherit;transition:background-color .15s ease,color .15s ease,border-color .15s ease,transform .1s ease;min-width:60px;min-height:36px}
   @media (hover:hover) and (pointer:fine){.mode:hover{color:var(--ink)}}
   .mode:active{transform:scale(.98)}
-  .mode.on{color:#fff;border-color:transparent;background:var(--g1);box-shadow:0 8px 20px rgba(0,112,186,.18)}
+  .mode.on{color:#fff;border-color:transparent;background:var(--g1)}
 
   .convo{flex:1;overflow-y:auto;padding:6px 14px 14px;display:flex;flex-direction:column;gap:14px}
   .empty{margin:auto;text-align:center;color:var(--mut);padding:30px 10px}
   .empty .big{font-size:30px;margin-bottom:10px}
-  .empty kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11px}
+  .empty kbd{background:var(--panel2);border:0;border-radius:7px;padding:2px 7px;font-size:11px}
 
   .msg{display:flex;flex-direction:column;gap:6px;animation:rise .2s ease}
   @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .bubble-user{align-self:flex-end;max-width:88%;background:var(--panel2);border:1px solid var(--line);border-radius:12px 12px 4px 12px;padding:9px 12px;font-size:13px}
+  .bubble-user{align-self:flex-end;max-width:88%;background:var(--panel2);border:0;border-radius:18px 18px 7px 18px;padding:10px 13px;font-size:13px}
   .bubble-user img{max-width:160px;border-radius:8px;display:block;margin-top:6px}
   .ans{align-self:stretch}
-  .final{padding:12px 14px;border-radius:10px;background:#fff;border:1px solid var(--line)}
+  .final{padding:13px 15px;border-radius:18px;background:#fff;border:0}
   .final .fhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
   .final .lab{font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:var(--g1)}
   .final .txt{font-size:15px;font-weight:600;color:var(--ink);line-height:1.45}
@@ -54,8 +55,8 @@
   .cbadge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;color:#061018;background:var(--good);white-space:nowrap;font-variant-numeric:tabular-nums}
   .cbadge[data-tone="warn"]{background:var(--warn)}.cbadge[data-tone="bad"]{background:var(--bad);color:#2a0a10}
   .choice{display:flex;align-items:center;gap:12px}
-  .cbadge-letter{flex:0 0 auto;width:42px;height:42px;border-radius:10px;display:grid;place-items:center;font-size:22px;font-weight:800;color:#fff;background:var(--g1);box-shadow:0 8px 20px rgba(0,112,186,.18)}
-  details.reason{margin-top:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+  .cbadge-letter{flex:0 0 auto;width:42px;height:42px;border-radius:10px;display:grid;place-items:center;font-size:22px;font-weight:800;color:#fff;background:var(--g1)}
+  details.reason{margin-top:8px;border:0;border-radius:16px;background:var(--panel2)}
   details.reason summary{cursor:pointer;padding:9px 12px;font-size:12px;font-weight:600;color:var(--mut);list-style:none}
   details.reason summary::-webkit-details-marker{display:none}
   details.reason summary::before{content:"▸ ";color:var(--g1)}
@@ -70,7 +71,7 @@
   .fill[data-tone="bad"]{background:linear-gradient(90deg,#ff8a8a,#ff6b7d)}
   .verify{margin-top:9px;font-size:12.5px}
   .ans-actions{display:flex;gap:4px;margin-top:10px}
-  .ans-act{width:40px;height:40px;background:transparent;border:none;color:var(--mut);box-shadow:none;font-size:14px;padding:0}
+  .ans-act{width:44px;height:44px;background:transparent;border:none;color:var(--mut);box-shadow:none;font-size:14px;padding:0}
   @media (hover:hover) and (pointer:fine){.ans-act:hover{background:rgba(24,32,29,.06);filter:none}}
   .badge{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px}
   .badge.good{color:var(--good);background:rgba(58,210,159,.12)}
@@ -82,34 +83,34 @@
   @keyframes b{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}
 
   /* error card */
-  .err{border:1px solid rgba(194,65,90,.22);background:#fff;border-radius:12px;padding:11px 13px}
+  .err{border:0;background:#fff7f8;border-radius:16px;padding:12px 14px}
   .err .t{font-weight:700;color:var(--bad);margin-bottom:6px}
   .err ol{margin:0 0 8px;padding-left:18px;color:var(--mut);font-size:12.5px}
   .err .row{display:flex;gap:8px}
 
   /* markdown */
-  .ans code,.bubble-user code,.reason-body code{background:var(--panel2);border:1px solid var(--line);padding:1px 5px;border-radius:5px;font-size:12.5px;font-family:var(--mono)}
-  .ans pre{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px;overflow-x:auto;font-size:12.5px;font-family:var(--mono)}
+  .ans code,.bubble-user code,.reason-body code{background:var(--panel2);border:0;padding:1px 5px;border-radius:8px;font-size:12.5px;font-family:var(--mono)}
+  .ans pre{background:var(--panel2);border:0;border-radius:14px;padding:10px;overflow-x:auto;font-size:12.5px;font-family:var(--mono)}
   .solv-h1{font-weight:700;color:var(--ink);margin:8px 0 3px}.solv-h2{font-weight:700;color:var(--ink);margin:6px 0 3px}
   .solv-li{margin:2px 0}.ans blockquote{border-left:3px solid var(--g1);margin:6px 0;padding:2px 0 2px 10px;color:var(--mut)}
-  .ans hr{border:none;border-top:1px solid var(--line);margin:8px 0}
+  .ans hr{border:none;height:1px;background:var(--panel2);margin:8px 0}
   .solv-table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12.5px}
-  .solv-table th,.solv-table td{border:1px solid var(--line);padding:5px 8px;text-align:left}
+  .solv-table th,.solv-table td{border:0;padding:6px 8px;text-align:left}
   .solv-table th{background:var(--panel2);color:var(--ink)}
 
   /* composer */
-  .composer{border-top:1px solid var(--line);background:rgba(255,255,255,.92);backdrop-filter:blur(8px);padding:10px 12px}
-  .attach-chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:5px 8px;font-size:11.5px;color:var(--mut);margin-bottom:8px}
+  .composer{border-top:0;background:#fff;backdrop-filter:blur(8px);padding:10px 12px}
+  .attach-chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:0;border-radius:14px;padding:6px 9px;font-size:11.5px;color:var(--mut);margin-bottom:8px}
   .attach-chip img{height:26px;border-radius:5px}
   .attach-chip button{background:none;border:none;color:var(--mut);cursor:pointer}
   .input-row{display:flex;gap:8px;align-items:flex-end}
-  textarea{flex:1;resize:none;max-height:120px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:16px;font-family:inherit;outline:none;line-height:1.4}
-  textarea:focus{border-color:var(--g1)}
-  .send,.attach{border:none;border-radius:10px;cursor:pointer;font-size:16px;height:40px;transition:filter .15s ease,transform .1s ease}
+  textarea{flex:1;resize:none;max-height:120px;background:var(--panel2);border:0;color:var(--ink);border-radius:20px;padding:11px 14px;font-size:16px;font-family:inherit;outline:none;line-height:1.4}
+  textarea:focus{background:#fff}
+  .send,.attach{border:none;border-radius:999px;cursor:pointer;font-size:16px;height:46px;transition:filter .15s ease,transform .1s ease}
   .send:active,.attach:active{transform:scale(.97)}
-  .attach{width:40px;background:var(--panel2);border:1px solid var(--line);color:var(--mut)}
+  .attach{width:46px;background:var(--panel2);border:0;color:var(--mut)}
   .attach:hover{color:var(--ink)}
-  .send{width:44px;background:var(--g1);color:#fff;font-weight:700;box-shadow:0 8px 20px rgba(0,112,186,.18)}
+  .send{width:46px;background:var(--g1);color:#fff;font-weight:700}
   .send:disabled{opacity:.5;cursor:default;box-shadow:none}
   .hint{font-size:11px;color:var(--mut);margin-top:7px}
   a{color:var(--g1)}
@@ -119,7 +120,7 @@
 <body class="sidepanel-page">
   <div class="top">
     <div class="brand"><span class="logo">S</span> <span>Sol<span class="grad">v</span></span></div>
-    <button class="icon-btn" id="gear" title="Settings" aria-label="Open settings">⚙</button>
+    <button class="icon-btn" id="gear" title="Settings" aria-label="Open settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M2 14h4"/><path d="M10 8h4"/><path d="M18 16h4"/></svg></button>
   </div>
   <div class="controls">
     <select id="provider"></select>
@@ -138,10 +139,10 @@
   <div class="composer">
     <div id="attachWrap"></div>
     <div class="input-row">
-      <button class="attach" id="attach" title="Attach image" aria-label="Attach image">🖼</button>
+      <button class="attach" id="attach" title="Attach image" aria-label="Attach image"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="10" r="1.5"/><path d="m21 15-4.5-4.5L8 19"/></svg></button>
       <input type="file" id="file" accept="image/*" hidden />
       <textarea id="input" rows="1" placeholder="Type or paste a question…"></textarea>
-      <button class="send" id="send" title="Send (Enter or Cmd/Ctrl+Enter)" aria-label="Send question">➤</button>
+      <button class="send" id="send" title="Send (Enter or Cmd/Ctrl+Enter)" aria-label="Send question"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></svg></button>
     </div>
     <div class="hint" id="hint"></div>
   </div>
